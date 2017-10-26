@@ -2,6 +2,9 @@ import numpy as np
 import pymc3 as pm
 import ROOT 
 
+# Copy function
+import copy
+
 # Matplotlib - 2D plotting library
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
@@ -50,16 +53,21 @@ class PyBSD(object):
 
     def __init__(self, data=ROOT.TH1D(), migration=ROOT.TH2D(), truth=ROOT.TH1D()):
 
-        # Input Parameters
-        self.data = data
-        self.migration = migration
-        self.truth = truth
+        # Check the data types are as follows:
+        # data == ROOT.TH1
+        # migration = ROOT.TH2
+        # truth = ROOT.TH1
+        if not isinstance(data, ROOT.TH1): raise TypeError("Data histogram must be of type ROOT.TH1")
+        if not isinstance(migration, ROOT.TH2): raise TypeError("Migration matrix must be of type ROOT.TH2")
+        if not isinstance(truth, ROOT.TH1): raise TypeError("Truth histogram must be of type ROOT.TH1")
+
+        # Copy the inputs to the object
+        self.data = copy.deepcopy(data)
+        self.migration = copy.deepcopy(migration)
+        self.truth = copy.deepcopy(truth)
 
     # Function to plot the measure data histogram
     def plotData(self, fName, withErrors = False, confInt=0.995):
-        # Check the data type is a TH1 instance
-        #if not isinstance(self.data, ROOT.TH1):
-        #    raise TypeError("Data must be an instance of ROOT.TH1")
 
         # Get bin values, errors, and edges
         binVal = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
@@ -103,9 +111,6 @@ class PyBSD(object):
     
     # Function to plot the migration matrix
     def plotMigration(self, fName):
-        # Check the migration matrix type is of TH2 instance
-        #if not isinstance(self.migration, ROOT.TH2):
-        #    raise TypeError("Migration must be an instance of ROOT.TH2")
 
         # Get bin values, errors, and edges
         binVal = np.array([[self.migration.GetBinContent(i+1,j+1) for i in range(0, self.migration.GetNbinsX())] for j in range(0, self.migration.GetNbinsY())])
@@ -194,10 +199,9 @@ class PyBSD(object):
 fData = ROOT.TFile.Open('./../TestData/electron_Exp_1000_keV_R_20_cm_Nr_200000000_ISO.root')
 
 # Test the class
-myBSD = PyBSD()
-myBSD.data = fData.Get('Detector Measured Spectrum')
-myBSD.migration = fData.Get('Energy Migration Matrix (Electron)')
-myBSD.truth = fData.Get('Source Fluence (Electron)')
+myBSD = PyBSD(fData.Get('Detector Measured Spectrum'),
+              fData.Get('Energy Migration Matrix (Electron)'),
+              fData.Get('Source Fluence (Electron)'))
 myBSD.plotData('Data.jpg', withErrors = True, confInt = 0.9995)
 myBSD.plotMigration('Migration.jpg')
 myBSD.plotTruth('Truth.jpg')
