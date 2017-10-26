@@ -7,6 +7,9 @@ from matplotlib import pyplot as plt
 from matplotlib import rcParams
 from matplotlib import colors
 
+# Scipy
+import scipy.stats as st
+
 # Color palette library for Python
 # How to choose a colour scheme for your data:
 # http://earthobservatory.nasa.gov/blogs/elegantfigures/2013/08/05/subtleties-of-color-part-1-of-6/
@@ -53,14 +56,14 @@ class PyBSD(object):
         self.truth = truth
 
     # Function to plot the measure data histogram
-    def plotData(self, fName, withErrors = False):
+    def plotData(self, fName, withErrors = False, confInt=0.995):
         # Check the data type is a TH1 instance
         #if not isinstance(self.data, ROOT.TH1):
         #    raise TypeError("Data must be an instance of ROOT.TH1")
 
         # Get bin values, errors, and edges
         binVal = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-        binValErr = np.array([self.data.GetBinError(i+1) for i in range(0, self.data.GetNbinsX())])
+        binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
         binEdge = np.array([self.data.GetBinLowEdge(i+1) for i in range(0, self.data.GetNbinsX() + 1)])
         binCenter = np.array([self.data.GetBinCenter(i+1) for i in range(0, self.data.GetNbinsX())])
 
@@ -68,24 +71,25 @@ class PyBSD(object):
         figData, axData = plt.subplots()
 
         # Plot the data
-        axData.plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))),
-                    np.repeat(binVal, 2),
-                    lw=1.25,
-                    color='black',
-                    linestyle="-",
-                    drawstyle='steps')
+        axData.plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binVal, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
 
         # Plot data errors if selected
         if withErrors:
-            axData.errorbar(binCenter,binVal,yerr=binValErr,capsize=0,ls='none',elinewidth=1.25, fmt='-')
+            axData.fill_between(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
+                                np.repeat(binVal - binValErr, 2), 
+                                np.repeat(binVal + binValErr, 2), 
+                                color='gray', 
+                                alpha=0.3, 
+                                label= str(confInt*100)+ '% Confidence')
 
         # Figure properties
-        axData.set_xlabel('True Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
+        axData.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
         axData.set_ylabel('# of Events' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
         axData.set_xlim(min(binEdge),max(binEdge))
         axData.set_ylim(np.power(10, np.floor(np.log10(np.min(binVal[binVal > 0])))), np.power(10, np.ceil(np.log10(np.max(binVal)))))
         axData.set_xscale('log')
         axData.set_yscale('log')
+        axData.legend(loc='upper right')
 
         # Fine-tune figure 
         figData.tight_layout()
@@ -145,6 +149,47 @@ class PyBSD(object):
         # Show the figure
         plt.close(figMigration)
 
+    # Function to plot the truth histogram
+    def plotTruth(self, fName, withErrors = False, confInt=0.995):
+        # Get bin values, errors, and edges
+        binVal = np.array([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())])
+        binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
+        binEdge = np.array([self.truth.GetBinLowEdge(i+1) for i in range(0, self.truth.GetNbinsX() + 1)])
+        binCenter = np.array([self.truth.GetBinCenter(i+1) for i in range(0, self.truth.GetNbinsX())])
+
+        # Create a figure
+        figTruth, axTruth = plt.subplots()
+
+        # Plot the truth
+        axTruth.plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binVal, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
+
+        # Plot truth errors if selected
+        if withErrors:
+            axData.fill_between(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
+                                np.repeat(binVal - binValErr, 2), 
+                                np.repeat(binVal + binValErr, 2), 
+                                color='gray', 
+                                alpha=0.3, 
+                                label= str(confInt*100)+ '% Confidence')
+
+        # Figure properties
+        axTruth.set_xlabel('True Energy (keV)' if not self.truth.GetXaxis().GetTitle() else self.truth.GetXaxis().GetTitle())
+        axTruth.set_ylabel('# of Events' if not self.truth.GetYaxis().GetTitle() else self.truth.GetYaxis().GetTitle())
+        axTruth.set_xlim(min(binEdge),max(binEdge))
+        axTruth.set_ylim(np.power(10, np.floor(np.log10(np.min(binVal[binVal > 0])))), np.power(10, np.ceil(np.log10(np.max(binVal)))))
+        axTruth.set_xscale('log')
+        axTruth.set_yscale('log')
+
+        # Fine-tune figure 
+        figTruth.tight_layout()
+
+        # Save the figure 
+        plt.savefig(fName, bbox_inches="tight")
+        print 'Truth plot saved to: ' + fName
+
+        # Show the figure
+        plt.close(figTruth)
+
 # Load the data from the ROOT file
 fData = ROOT.TFile.Open('./../TestData/electron_Exp_1000_keV_R_20_cm_Nr_200000000_ISO.root')
 
@@ -152,5 +197,7 @@ fData = ROOT.TFile.Open('./../TestData/electron_Exp_1000_keV_R_20_cm_Nr_20000000
 myBSD = PyBSD()
 myBSD.data = fData.Get('Detector Measured Spectrum')
 myBSD.migration = fData.Get('Energy Migration Matrix (Electron)')
-myBSD.plotData('Data.jpg')
+myBSD.truth = fData.Get('Source Fluence (Electron)')
+myBSD.plotData('Data.jpg', withErrors = True, confInt = 0.9995)
 myBSD.plotMigration('Migration.jpg')
+myBSD.plotTruth('Truth.jpg')
