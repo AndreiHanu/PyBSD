@@ -50,24 +50,36 @@ params = {'backend': 'pdf',
 rcParams.update(params)
 
 class PyBSD(object):
+    '''
+    Object initialization function
 
-    def __init__(self, data=ROOT.TH1D(), migration=ROOT.TH2D(), truth=ROOT.TH1D()):
+    PARAMETERS:
 
-        # Check the data types are as follows:
-        # data == ROOT.TH1
+    migration: A ROOT TH2 histogram whose elements are the joint probability P(t,d)
+               of an event that was produced in the truth energy bin t and measured
+               in the detector energy bin d. Other names for this matrix include
+               energy migration matrix or smearing matrix.
+
+               NOTE: The x-axis is the truth energy bins
+                     The y-axis is the detected energy bins
+
+    truth:    A ROOT TH1 histogram which contains the true spectrum from which the
+              measured energy originated before smearing
+    '''
+    def __init__(self, migration=ROOT.TH2D(), truth=ROOT.TH1D()):
+
+        # Check the input instance type as follows:
         # migration = ROOT.TH2
         # truth = ROOT.TH1
-        if not isinstance(data, ROOT.TH1): raise TypeError("Data histogram must be of type ROOT.TH1")
         if not isinstance(migration, ROOT.TH2): raise TypeError("Migration matrix must be of type ROOT.TH2")
         if not isinstance(truth, ROOT.TH1): raise TypeError("Truth histogram must be of type ROOT.TH1")
 
         # Copy the inputs to the object
-        self.data = copy.deepcopy(data)
         self.migration = copy.deepcopy(migration)
         self.truth = copy.deepcopy(truth)
 
     # Function to plot the measure data histogram
-    def plotData(self, fName, withErrors = False, confInt=0.995):
+    def plotData(self,  fName='DataHistogram.jpg', withErrors=False, confInt=0.995):
 
         # Get bin values, errors, and edges
         binVal = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
@@ -110,7 +122,7 @@ class PyBSD(object):
         plt.close(figData)
     
     # Function to plot the migration matrix
-    def plotMigration(self, fName):
+    def plotMigration(self,  fName='MigrationMatrix.jpg'):
 
         # Get bin values, errors, and edges
         binVal = np.array([[self.migration.GetBinContent(i+1,j+1) for i in range(0, self.migration.GetNbinsX())] for j in range(0, self.migration.GetNbinsY())])
@@ -137,8 +149,8 @@ class PyBSD(object):
         cbar.set_label('# of Events' if not self.migration.GetZaxis().GetTitle() else self.migration.GetZaxis().GetTitle())  
 
         # Figure properties
-        axMigration.set_xlabel('Measured Energy (keV)' if not self.migration.GetXaxis().GetTitle() else self.migration.GetXaxis().GetTitle())
-        axMigration.set_ylabel('True Energy (keV)' if not self.migration.GetYaxis().GetTitle() else self.migration.GetYaxis().GetTitle())
+        axMigration.set_xlabel('LOL Energy (keV)' if not self.migration.GetXaxis().GetTitle() else self.migration.GetXaxis().GetTitle())
+        axMigration.set_ylabel('Measured Energy (keV)' if not self.migration.GetYaxis().GetTitle() else self.migration.GetYaxis().GetTitle())
         axMigration.set_xlim(min(binEdge[0]),max(binEdge[0]))
         axMigration.set_ylim(min(binEdge[1]),max(binEdge[1]))
         axMigration.set_xscale('log')
@@ -155,7 +167,7 @@ class PyBSD(object):
         plt.close(figMigration)
 
     # Function to plot the truth histogram
-    def plotTruth(self, fName, withErrors = False, confInt=0.995):
+    def plotTruth(self, fName='TruthHistogram.jpg', withErrors=False, confInt=0.995):
         # Get bin values, errors, and edges
         binVal = np.array([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())])
         binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
@@ -194,14 +206,39 @@ class PyBSD(object):
 
         # Show the figure
         plt.close(figTruth)
+    
+    # Run
+    def run(self, data=ROOT.TH1D(), background=ROOT.TH1D()):
+        # Check the input instance type as follows: 
+        # data == ROOT.TH1
+        # background = ROOT.TH1
+        if not isinstance(data, ROOT.TH1): raise TypeError("Data histogram must be of type ROOT.TH1")
+        if not isinstance(background, ROOT.TH1): raise TypeError("Background histogram must be of type ROOT.TH1")
+
+        # Copy the inputs to the object
+        self.data = copy.deepcopy(data)
+        self.background = copy.deepcopy(background)
+
+# ROOT file context manager
+class ROOTFile(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+
+    def __enter__(self):
+        self.file = ROOT.TFile.Open(self.filename, 'read')
+        return self.file
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.file.Close()
 
 # Load the data from the ROOT file
-fData = ROOT.TFile.Open('./../TestData/electron_Exp_1000_keV_R_20_cm_Nr_200000000_ISO.root')
+with ROOTFile('./../TestData/electron_Exp_500_keV_R_100_cm_Nr_2000000000_ISO.root') as fData:
+    # Test the class
+    myBSD = PyBSD(fData.Get('Energy Migration Matrix (Electron)'), fData.Get('Source Spectrum (Electron)'))
 
-# Test the class
-myBSD = PyBSD(fData.Get('Detector Measured Spectrum'),
-              fData.Get('Energy Migration Matrix (Electron)'),
-              fData.Get('Source Fluence (Electron)'))
-myBSD.plotData('Data.jpg', withErrors = True, confInt = 0.9995)
-myBSD.plotMigration('Migration.jpg')
-myBSD.plotTruth('Truth.jpg')
+    myBSD.run(fData.Get('Detector Measured Spectrum'))
+
+    myBSD.plotData(withErrors=True, confInt=0.995)
+    myBSD.plotMigration()
+    myBSD.plotTruth()
