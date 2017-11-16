@@ -86,22 +86,13 @@ class PyBSD(object):
         # Response[i,j] = P(d = j|t = i) = P(t = i, d = j)/P(t = i)
         # Response[j|i] = M[d = j, t = i] / Truth[i]
         self.response = copy.deepcopy(migration)
-        tSum = np.sum([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())])
+        #tSum = np.sum([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())])
 
         for i in range(0, self.response.GetNbinsX()):
             #tSum = np.sum([self.response.GetBinContent(i+1,j+1) for j in range(0, self.response.GetNbinsY())])
             for j in range(0, self.response.GetNbinsY()):
-                #self.response.SetBinContent(i+1, j+1, self.response.GetBinContent(i+1,j+1)/self.truth.GetBinContent(i+1))
-                self.response.SetBinContent(i+1, j+1, self.response.GetBinContent(i+1,j+1)/tSum)
-
-        # Define the default prior and its attributes
-        self.prior = "uniform"
-
-    '''
-    Set a uniform prior capped at zero
-    '''
-    def setUniformPrior(self):
-        self.prior = "uniform"
+                self.response.SetBinContent(i+1, j+1, self.response.GetBinContent(i+1,j+1)/self.truth.GetBinContent(i+1))
+                #self.response.SetBinContent(i+1, j+1, self.response.GetBinContent(i+1,j+1)/tSum)
 
     # Function to plot the measure data histogram
     def plotData(self,  fName='DataHistogram.jpg', withErrors=False, confInt=0.995):
@@ -281,8 +272,8 @@ class PyBSD(object):
     # Function to plot the unfolded spectrum
     def plotUnfolded(self, fName='UnfoldedHistogram.jpg', withErrors=False, confInt=0.995):
         # Get bin values, errors, and edges
-        binVal = np.array([np.mean(self.trace.Truth[:, i]) for i in range(0, self.truth.GetNbinsX())])
-        binValTruth = np.array([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())])
+        binVal = np.array([np.median(self.trace.Truth[:, i]) for i in range(0, self.truth.GetNbinsX())])
+        binValTruth = np.array([self.datatruth.GetBinContent(i+1) for i in range(0, self.datatruth.GetNbinsX())])
         binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
         binEdge = np.array([self.truth.GetBinLowEdge(i+1) for i in range(0, self.truth.GetNbinsX() + 1)])
         binCenter = np.array([self.truth.GetBinCenter(i+1) for i in range(0, self.truth.GetNbinsX())])
@@ -337,10 +328,10 @@ class PyBSD(object):
     def run(self, data=ROOT.TH1D(), datatruth=ROOT.TH1D(), background=ROOT.TH1D()):
         # Check the input instance type as follows: 
         # data == ROOT.TH1
-        # datatruth == ROOT.TH2
+        # datatruth == ROOT.TH1
         # background == ROOT.TH1
         if not isinstance(data, ROOT.TH1): raise TypeError("Data histogram must be of type ROOT.TH1")
-        if not isinstance(datatruth, ROOT.TH2): raise TypeError("Data truth histogram must be of type ROOT.TH2")
+        if not isinstance(datatruth, ROOT.TH1): raise TypeError("Data truth histogram must be of type ROOT.TH1")
         if not isinstance(background, ROOT.TH1): raise TypeError("Background histogram must be of type ROOT.TH1")
 
         # Copy the inputs to the object
@@ -354,50 +345,46 @@ class PyBSD(object):
             self.var_alpha = theano.shared(value = 1.0, borrow = False)
 
             # Define the prior probability density pi(T)
-            if self.prior == "uniform": # Uniform prior capped at zero
-                self.T = pm.Uniform('Truth', 
-                                    0., 
-                                    10*np.amax([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())]), 
-                                    shape = (self.truth.GetNbinsX()), 
-                                    testval = np.array([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())]))
-
-                print 'Prior Probability Density: Uniform capped at zero'
-            else: # If no match, assume it is an unbound uniform
-                self.T = pm.Flat('Truth', 
-                                 shape = (self.truth.GetNbinsX()), 
-                                 testval = np.array([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())]))
+            '''
+            self.T = pm.Uniform('Truth', 
+                                0., 
+                                10*np.amax([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())]), 
+                                shape = (self.truth.GetNbinsX()), 
+                                testval = np.array([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())]))
+            '''
+            self.T = pm.Uniform('Truth', 
+                                0., 
+                                10*np.amax([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())]), 
+                                shape = (self.truth.GetNbinsX()), 
+                                testval = np.array([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())]))
 
             # Define Eq.8
             # TODO: Add background & multiple response matrices/priors
             self.var_response = theano.shared(value = self.asMat([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())]))
             self.R = theano.tensor.dot(self.var_response, self.T)
             
-            # Unfold
+            # Define the Poisson likelihood, L(D|T) in Eq. 3, for the measured data  
             self.U = pm.Poisson('Unfolded', 
                                 mu = self.R, 
                                 observed = theano.shared(value = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), borrow = False), 
                                 shape = (self.data.GetNbinsX(), 1))
 
-    # Samples the prior with N toy experiments
+    # Samples the posterior with N toy experiments
     # Saves the toys in self.trace, the unfolded distribution mean and mode in self.hunf and self.hunf_mode respectivel
     # the sqrt of the variance in self.hunf_err
-    def sample(self, N = 100000):
-        self.N = N
+    def sample(self, N = 10000, B = 10000):
+        self.Samples = N
+        self.Burn = B
         with self.model:
-            # Use the NUTS algorithm for inference
-            #start = pm.find_MAP(model = self.model)
-            #step = pm.NUTS(state = start)
-            #self.trace = pm.sample(N, step = step, start = start)
-            #self.trace = pm.sample(self.N, njobs = 1)
-
             # Use the Metropolis Hastings algorithm for inference
-            start = pm.find_MAP(model = self.model)
             step = pm.Metropolis()
-            self.trace = pm.sample(self.N, step = step, njobs=8, tune = 10000)
-
-            # Use the ADVI algorithm for inference
-            #v_params = pm.variational.advi(model = self.model, n=self.N, learning_rate=1e-1)
-            #self.trace = pm.variational.sample_vp(v_params, draws=self.N)
+            start = pm.find_MAP(model = self.model)
+            self.trace = pm.sample(self.Samples,
+                                   tune = self.Burn,
+                                   step = step,
+                                   start = start,
+                                   chains = 4, 
+                                   njobs = 4)
             
             pm.summary(self.trace)
 
@@ -420,19 +407,20 @@ with ROOTFile('./../TestData/electron_Uni_R_20_cm_ISO.root') as fResponse:
         # Test the class
         myBSD = PyBSD(fResponse.Get('Energy Migration Matrix (Electron)'), fResponse.Get('Source Spectrum (Electron)'))
 
-        myBSD.plotResponse()
-
-        myBSD.setUniformPrior()
-
-        myBSD.run(data = fData.Get('Detector Measured Spectrum'), 
-                  datatruth = fData.Get('Energy Migration Matrix (Electron)'))
-        myBSD.setAlpha(1.)
-        myBSD.sample(10000)
-
-        myBSD.plotData(withErrors=True, confInt=0.995)
         myBSD.plotMigration()
         myBSD.plotResponse()
         myBSD.plotTruth()
+
+        # Run Inference
+        myBSD.run(data = fData.Get('Detector Measured Spectrum'), 
+                  #datatruth = fData.Get('Energy Migration Matrix (Electron)')
+                  datatruth = fData.Get('Source Spectrum (Electron)'))
+        myBSD.setAlpha(1.)
+        myBSD.sample(N=100000,B=100000)
+
+
+        # Plot data and unfolding results
+        myBSD.plotData(withErrors=True, confInt=0.995)
         myBSD.plotUnfolded()
 
     
