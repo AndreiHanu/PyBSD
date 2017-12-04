@@ -11,50 +11,17 @@ import copy
 
 # Matplotlib - 2D plotting library
 import matplotlib.pyplot as plt
-#from matplotlib import rcParams
 from matplotlib import colors
 import seaborn.apionly as sns
 
 # Scipy
 import scipy.stats as st
+from scipy.stats.mstats import mode
 
 # Color palette library for Python
 # How to choose a colour scheme for your data:
 # http://earthobservatory.nasa.gov/blogs/elegantfigures/2013/08/05/subtleties-of-color-part-1-of-6/
 import palettable
-
-##########################################################################################
-# Setting rcParams for publication quality graphs
-'''
-fig_width_pt = 246.0                    # Get this from LaTeX using \showthe\columnwidth
-inches_per_pt = 1.0/72.27               # Convert pt to inch
-golden_mean = (np.sqrt(5)-1.0)/2.0      # Aesthetic ratio
-fig_width = fig_width_pt*inches_per_pt  # Width in inches
-fig_height = fig_width*golden_mean      # Height in inches
-fig_size =  [fig_width, fig_height]
-fig_size =  [7.3*1.75,4.2*1.75]
-params = {'backend': 'pdf',
-        'axes.labelsize': 12,
-        'legend.fontsize': 12,
-        'xtick.labelsize': 12,
-        'ytick.labelsize': 12,
-        'xtick.major.size': 7,
-        'xtick.major.width': 1,
-        'xtick.minor.size': 3.5,
-        'xtick.minor.width': 1.25,
-        'ytick.major.size': 7,
-        'ytick.major.width': 1.25,
-        'ytick.minor.size': 3.5,
-        'ytick.minor.width': 1.25,
-        'font.family': 'sans-serif',
-        'font.sans-serif': 'Bitstream Vera Sans',
-        'font.size': 11,
-#        'text.usetex': True,
-        'figure.figsize': fig_size}
-
-# Update rcParams
-rcParams.update(params)
-'''
 
 class PyBSD(object):
     '''
@@ -99,12 +66,21 @@ class PyBSD(object):
                                                 j+1,
                                                 (self.response.GetBinContent(i+1,j+1)/tSum if np.isfinite(self.response.GetBinContent(i+1,j+1)/tSum) else 0.))
 
-    # Function to plot the measure data histogram
-    def plotData(self,  fName='DataHistogram.jpg', withErrors=False, confInt=0.995):
+    '''
+    Function to plot the measure data histogram
+
+    IMPORTANT NOTE: It is customary to plot data (D) with error bars equal to sqrt(D) since it is
+                    assumed they come from an underlying Poisson distribution. This is a frequentist
+                    approach and assumes the data has uncertainty. However, there is usually no uncertainy
+                    in the number of events we counted, assuming we know how to count properly. The 
+                    uncertainty is in the parameters of the underlying probability distribution function.
+
+                    This is an important aspect of the Bayesian approach. Measured data has no uncertainty!
+    '''
+    def plotData(self,  fName='DataHistogram.jpg'):
 
         # Get bin values, errors, and edges
         binVal = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-        binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
         binEdge = np.array([self.data.GetBinLowEdge(i+1) for i in range(0, self.data.GetNbinsX() + 1)])
         binCenter = np.array([self.data.GetBinCenter(i+1) for i in range(0, self.data.GetNbinsX())])
 
@@ -113,15 +89,6 @@ class PyBSD(object):
 
         # Plot the data
         axData.plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binVal, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
-
-        # Plot data errors if selected
-        if withErrors:
-            axData.fill_between(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
-                                np.repeat(binVal - binValErr, 2), 
-                                np.repeat(binVal + binValErr, 2), 
-                                color='gray', 
-                                alpha=0.3, 
-                                label= str(confInt*100)+ '% Confidence')
 
         # Figure properties
         axData.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
@@ -234,10 +201,9 @@ class PyBSD(object):
         plt.close(figResponse)
 
     # Function to plot the truth histogram
-    def plotTruth(self, fName='TruthHistogram.jpg', withErrors=False, confInt=0.995):
+    def plotTruth(self, fName='TruthHistogram.jpg'):
         # Get bin values, errors, and edges
         binVal = np.array([self.truth.GetBinContent(i+1) for i in range(0, self.truth.GetNbinsX())])
-        binValErr = st.norm.ppf(confInt)*np.sqrt(binVal)
         binEdge = np.array([self.truth.GetBinLowEdge(i+1) for i in range(0, self.truth.GetNbinsX() + 1)])
         binCenter = np.array([self.truth.GetBinCenter(i+1) for i in range(0, self.truth.GetNbinsX())])
 
@@ -246,15 +212,6 @@ class PyBSD(object):
 
         # Plot the truth
         axTruth.plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binVal, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
-
-        # Plot truth errors if selected
-        if withErrors:
-            axData.fill_between(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
-                                np.repeat(binVal - binValErr, 2), 
-                                np.repeat(binVal + binValErr, 2), 
-                                color='gray', 
-                                alpha=0.3, 
-                                label= str(confInt*100)+ '% Confidence')
 
         # Figure properties
         axTruth.set_xlabel('True Energy (keV)' if not self.truth.GetXaxis().GetTitle() else self.truth.GetXaxis().GetTitle())
@@ -302,15 +259,12 @@ class PyBSD(object):
         return zscore
 
     # Function to plot the unfolded spectrum
-    def plotUnfolded(self, fName='UnfoldedHistogram.pdf', withErrors=False, confInt=0.995):
-        # Prepare values to plot:
-        # Unfolded: Mode of the PDF
-        # Unfolded Error: Interquartile Range
+    def plotUnfolded(self, fName='UnfoldedHistogram.pdf'):
+        # Prepare values to plot
+        # Unfolded Value = Mode of the Bayesian posterior PDF
+        # Unfolded Uncertainty = Interquartile range of the Bayesian posterior PDF
         # Edges: From the truth distribution
-        binValMean = np.mean(self.trace.Truth[:], axis = 0)
-        binVal = st.mode(np.rint(self.trace.Truth[:]), axis = 0)[0].flatten()
-
-        binValErr = st.norm.ppf(confInt)*np.std(np.rint(self.trace.Truth[:]), axis = 0)
+        binVal = mode(np.rint(self.trace.Truth[:]), axis = 0)[0].flatten()
         binValTruth = np.array([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())])
         binEdge = np.array([self.truth.GetBinLowEdge(i+1) for i in range(0, self.truth.GetNbinsX() + 1)])
         binCenter = np.array([self.truth.GetBinCenter(i+1) for i in range(0, self.truth.GetNbinsX())])
@@ -324,21 +278,21 @@ class PyBSD(object):
         # Plot the truth spectrum
         axUnfolded[0].plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binValTruth, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='True')
         
-        # Plot unfolded spectrum with errors if selected
-        if withErrors:
-            axUnfolded[0].errorbar([(binEdge[i+1]+binEdge[i])/2 for i in range(0, len(binEdge)-1)],
-                            binVal, 
-                            yerr=binValErr,
-                            xerr=[(binEdge[i+1]-binEdge[i])/2 for i in range(0, len(binEdge)-1)],
-                            capsize=0, 
-                            ls='none', 
-                            color='red',
-                            elinewidth=1.25,
-                            fmt='-',
-                            label= 'Reconstructed (' + str(confInt*100) + '% Confidence)')
+        # Plot the Bayesian confidence intervals
+        BayesInterval = {0.68,0.95,0.997}
+        for confInt in BayesInterval:
+            binEdges = sorted(np.concatenate((binEdge[1:],binEdge[:-1])))
+            binIQR = pm.stats.hpd(self.trace.Truth[:], alpha=(1-confInt))
+            axUnfolded[0].fill_between(binEdges, np.repeat(binIQR[:,0], 2), np.repeat(binIQR[:,1], 2), alpha=0.2, label= str(confInt*100)+ '% Prob')
 
-        else:
-            axUnfolded[0].plot(binCenter, binValTruth, lw=1.25, color='red', linestyle="-", drawstyle='steps', label= 'Reconstructed')
+        # Plot the mode of the Bayesian posterior PDF
+        axUnfolded[0].plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
+                          np.repeat(binVal, 2),
+                          lw=1.25, 
+                          color='red', 
+                          linestyle="-", 
+                          drawstyle='steps', 
+                          label='Unfolded (Mode)')
 
         # Plot the signifiance between the unfolded spectrum and the true spectrum
         axUnfolded[1].fill_between(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
@@ -368,7 +322,7 @@ class PyBSD(object):
                             \nN(Reco): {n_reco:g} $\pm$ {n_reco_err:g}'
                             .expandtabs().format(n_true=np.sum(binValTruth), \
                                                  n_reco=np.sum(binVal), \
-                                                 n_reco_err=np.sqrt(np.sum(binValErr**2))), 
+                                                 n_reco_err=0.), 
                             transform=axUnfolded[0].transAxes, 
                             verticalalignment='top', 
                             fontdict={'family' : 'monospace'})
@@ -388,6 +342,7 @@ class PyBSD(object):
                             np.power(10, np.ceil(np.log10(np.max(binValTruth)))))
         axUnfolded[0].set_xscale('log', nonposy='clip')
         axUnfolded[0].set_yscale('log', nonposy='clip')
+        #axUnfolded[0].legend(loc='upper right')
         #axUnfolded[0].grid(linestyle='dotted', which="both")
 
         axUnfolded[1].set_ylabel('Significance')  
@@ -408,22 +363,38 @@ class PyBSD(object):
         plt.close(figUnfolded)
 
     # Function to plot the posterior PDF in an unfolded bin
-    def plotPosteriorPDF(self, fName='PosteriorPDF.jpg'):
+    def plotPosteriorPDF(self, fName='PosteriorPDF.jpg', confInt = 0.95):
 
         for i in range(0, self.truth.GetNbinsX()):
-            figPosteriorPDF, axPosteriorPDF = plt.subplots(2,1)
+            figPosteriorPDF, axPosteriorPDF = plt.subplots()
 
-            # Plot a histogram of the PDF for this chain
-            entries, bin_edges, patches = axPosteriorPDF[0].hist(self.trace.Truth[:,i], 
-                                                                 bins = 'auto', 
-                                                                 range = (np.floor(self.trace.Truth[:,i].min()), np.ceil(self.trace.Truth[:,i].max())),
-                                                                 normed=True)
+            # Histogram the MCMC trace
+            binPosteriorPDF, edgePosteriorPDF = np.histogram(self.trace.Truth[:,i], 
+                                                             bins = 'doane',
+                                                             normed = True)
 
-            axPosteriorPDF[0].axvline(st.mode(np.rint(self.trace.Truth[:,i]))[0], color='r', linestyle='-')
+            # Calculate the interquartile range
+            iqrPosteriorPDF = pm.stats.hpd(self.trace.Truth[:,i], alpha=(1-confInt))
+
+            # Plot the PDF histogram
+            axPosteriorPDF.plot(sorted(np.concatenate((edgePosteriorPDF[1:],edgePosteriorPDF[:-1]))), 
+                                np.repeat(binPosteriorPDF, 2), 
+                                lw=1.25, 
+                                color='red', 
+                                linestyle="-", 
+                                drawstyle='steps')
+
+            axPosteriorPDF.fill_between(sorted(np.concatenate((edgePosteriorPDF[1:],edgePosteriorPDF[:-1]))),
+                                        0,
+                                        np.repeat(binPosteriorPDF, 2),
+                                        interpolate=False,
+                                        where=((sorted(np.concatenate((edgePosteriorPDF[1:],edgePosteriorPDF[:-1]))) >= iqrPosteriorPDF[0]) & 
+                                        (sorted(np.concatenate((edgePosteriorPDF[1:],edgePosteriorPDF[:-1]))) <= iqrPosteriorPDF[1])),
+                                        color='red', 
+                                        alpha=0.2)
+
+            axPosteriorPDF.axvline(mode(np.rint(self.trace.Truth[:,i]))[0], color='b', linestyle='-')
             
-
-            # Plot the CDF
-            axPosteriorPDF[1].hist(self.trace.Truth[:,i], bins='auto', normed=True, cumulative=True)
 
             # Fine-tune figure 
             figPosteriorPDF.tight_layout()
@@ -434,6 +405,7 @@ class PyBSD(object):
 
             # Show the figure
             plt.close(figPosteriorPDF)
+
 
     # Transform an array of doubles into a Theano-type array so that it can be used in the model
     def asMat(self, x):
@@ -474,7 +446,7 @@ class PyBSD(object):
             '''
             self.T = pm.Uniform('Truth', 
                                 0.,
-                                10*np.amax([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), 
+                                np.sum([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), 
                                 shape = (self.truth.GetNbinsX()))
 
             # Define Eq.8
@@ -497,6 +469,7 @@ class PyBSD(object):
         with self.model:
             # Select the Metropolis Hastings algorithm for inference
             #step = pm.Metropolis()
+            #step = pm.DiscreteMetropolis()
             step = pm.NUTS()
 
             # Find the MAP estimate
@@ -527,7 +500,7 @@ class ROOTFile(object):
         self.file.Close()
 
 # Load the response and measured data from the ROOT file
-fDataName = 'electron_Gauss_1000_100_keV_R_20_cm_Nr_200000000_ISO.root'
+fDataName = 'electron_Exp_500_keV_R_100_cm_Nr_2000000000_ISO.root'
 with ROOTFile('./../TestData/electron_Uni_R_20_cm_ISO.root') as fResponse:
     with ROOTFile('./../TestData/'+fDataName) as fData:
         # Test the class
@@ -542,9 +515,9 @@ with ROOTFile('./../TestData/electron_Uni_R_20_cm_ISO.root') as fResponse:
                   datatruth = fData.Get('Energy Migration Matrix (Electron)'))
                   #datatruth = fData.Get('Source Spectrum (Electron)'))
         myBSD.setAlpha(1.)
-        myBSD.sample(N=1000,B=1000)
+        myBSD.sample(N=20000,B=5000)
 
         # Plot data and unfolding results
-        myBSD.plotData(withErrors=True, confInt=0.95, fName = fDataName.split('.')[0] + '_Data.pdf')
-        myBSD.plotUnfolded(withErrors=True, confInt=0.95, fName = fDataName.split('.')[0] + '_Unfolded.pdf')
-        #myBSD.plotPosteriorPDF()
+        myBSD.plotData(fName = fDataName.split('.')[0] + '_Data.pdf')
+        myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_Unfolded.pdf')
+        myBSD.plotPosteriorPDF(confInt=0.95)
