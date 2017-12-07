@@ -92,7 +92,7 @@ class PyBSD(object):
 
         # Figure properties
         axData.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
-        axData.set_ylabel('# of Events' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
+        axData.set_ylabel('Counts' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
         axData.set_xlim(min(binEdge),max(binEdge))
         axData.set_ylim(np.power(10, np.floor(np.log10(np.min(binVal[binVal > 0])))), np.power(10, np.ceil(np.log10(np.max(binVal)))))
         axData.set_xscale('log')
@@ -231,15 +231,15 @@ class PyBSD(object):
         # Show the figure
         plt.close(figTruth)
 
-    '''
-    The goodness of the unfolding algorithm is calculated by assuming the total # of events in each bin of the true and measured histograms 
-    are Poisson distributed. This is a natural assumption of spectroscopic applications as the unfolding process cannot produce negative 
-    results as they would be unphysical.
-
-    Therefore, if the # of events in each bin is Poisson distributed, we can estimate the goodness-of-fit for the unfolding using the Poisson 
-    z-score.
-    '''
     def zscoresigned(self, observed, expected):
+        """
+        The goodness of the unfolding algorithm is calculated by assuming the total # of events in each bin of the true and measured histograms 
+        are Poisson distributed. This is a natural assumption of spectroscopic applications as the unfolding process cannot produce negative 
+        results as they would be unphysical.
+
+        Therefore, if the # of events in each bin is Poisson distributed, we can estimate the goodness-of-fit for the unfolding using the Poisson 
+        z-score.
+        """
         pvalue = np.zeros(observed.size)
         for i in range(observed.size):
             if observed[i] > expected[i]:
@@ -278,12 +278,18 @@ class PyBSD(object):
         # Plot the truth spectrum
         axUnfolded[0].plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), np.repeat(binValTruth, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='True')
         
-        # Plot the Bayesian confidence intervals
-        BayesInterval = {0.68,0.95,0.997}
-        for confInt in BayesInterval:
+        # Calculate the Bayesian credible regions and plot it over the data
+        bCR = [0.68,0.95,0.97]
+        crColPal = sns.color_palette('Purples')
+        iCR = 5
+        for cr in bCR:
             binEdges = sorted(np.concatenate((binEdge[1:],binEdge[:-1])))
-            binIQR = pm.stats.hpd(self.trace.Truth[:], alpha=(1-confInt))
-            axUnfolded[0].fill_between(binEdges, np.repeat(binIQR[:,0], 2), np.repeat(binIQR[:,1], 2), alpha=0.2, label= str(confInt*100)+ '% Prob')
+            binCR = pm.stats.hpd(self.trace.Truth[:], alpha=(1-cr))
+            axUnfolded[0].fill_between(binEdges, np.repeat(binCR[:,0], 2), np.repeat(binCR[:,1], 2), 
+                                       alpha=iCR/10., 
+                                       color=crColPal[iCR],
+                                       label=str(cr*100)+ '% CR')
+            iCR -= 1
 
         # Plot the mode of the Bayesian posterior PDF
         axUnfolded[0].plot(sorted(np.concatenate((binEdge[1:],binEdge[:-1]))), 
@@ -316,17 +322,20 @@ class PyBSD(object):
                             linestyle="-",
                             drawstyle='steps')
         
-        # Print some usefull stats on the graphs 
-        axUnfolded[0].text(0.02, 0.95, 
-                            'N(True): {n_true:g} \
-                            \nN(Reco): {n_reco:g} $\pm$ {n_reco_err:g}'
-                            .expandtabs().format(n_true=np.sum(binValTruth), \
-                                                 n_reco=np.sum(binVal), \
-                                                 n_reco_err=0.), 
-                            transform=axUnfolded[0].transAxes, 
-                            verticalalignment='top', 
-                            fontdict={'family' : 'monospace'})
+        # Print the unfolded quantiles
+        sumBinValTruth = np.sum(binValTruth)
+        sumBinValQ = np.percentile(self.trace.Truth[:], [2.5,50,97.5], axis=0)
 
+        axUnfolded[0].text(0.02, 0.95,
+                            'True: {:g}\n'.format(sumBinValTruth) + 
+                            'Reco: ' + r'${0:g}^{{+{1:g}}}_{{-{2:g}}}$'
+                            .format(np.sum(sumBinValQ[1,:]),
+                                    np.sum(sumBinValQ[2,:]) - np.sum(sumBinValQ[1,:]),
+                                    np.sum(sumBinValQ[1,:]) - np.sum(sumBinValQ[0,:])),
+                            transform=axUnfolded[0].transAxes, 
+                            verticalalignment='top')
+
+        # Compare True and Reco using zscore
         axUnfolded[1].text(0.02, 0.95, 
                               '$\sum$ Significance: {significance_tot:g} '
                               .expandtabs().format(significance_tot=np.sum(significance)),
@@ -406,6 +415,18 @@ class PyBSD(object):
             # Show the figure
             plt.close(figPosteriorPDF)
 
+    # Function to 
+    def plotCornerPDF(self, fName="CornerPosteriorPDF.pdf"):
+        import corner 
+
+        figCornerPDF = corner.corner(self.trace.Truth[:,0:20],
+                       show_titles=True, title_kwargs={"fontsize": 12})
+        # Save the figure 
+        plt.savefig(fName, bbox_inches="tight")
+        print 'Corner plot saved to: ' + fName
+
+        # Show the figure
+        plt.close(figCornerPDF)
 
     # Transform an array of doubles into a Theano-type array so that it can be used in the model
     def asMat(self, x):
@@ -444,10 +465,19 @@ class PyBSD(object):
                                 shape = (self.truth.GetNbinsX()), 
                                 testval = np.array([np.sum([self.datatruth.GetBinContent(i+1,j+1) for j in range(0, self.datatruth.GetNbinsY())]) for i in range(0, self.datatruth.GetNbinsX())]))
             '''
-            self.T = pm.Uniform('Truth', 
-                                0.,
-                                np.sum([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), 
-                                shape = (self.truth.GetNbinsX()))
+            #self.T = pm.Uniform('Truth', 
+            #                    0.,
+            #                    np.sum([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), 
+            #                    shape = (self.truth.GetNbinsX()))
+
+            dataMean = np.mean([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
+            dataStd = np.std([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
+
+            #BoundedNormal = pm.Bound(pm.Normal, lower=0.)
+            self.T = pm.Bound(pm.Normal, lower=0.0)('Truth', mu=dataMean, sd=dataStd, shape=(self.truth.GetNbinsX()))
+            
+            #dataSum = np.sum(self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX()))
+            #self.T = dataSum*np.array([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())]).sum(axis=0)
 
             # Define Eq.8
             # TODO: Add background & multiple response matrices/priors
@@ -468,9 +498,10 @@ class PyBSD(object):
         self.Burn = B
         with self.model:
             # Select the Metropolis Hastings algorithm for inference
-            #step = pm.Metropolis()
+            step = pm.Metropolis()
             #step = pm.DiscreteMetropolis()
             step = pm.NUTS()
+            #step = pm.HamiltonianMC()
 
             # Find the MAP estimate
             start = pm.find_MAP(model = self.model)
@@ -500,11 +531,11 @@ class ROOTFile(object):
         self.file.Close()
 
 # Load the response and measured data from the ROOT file
-fDataName = 'electron_Exp_500_keV_R_100_cm_Nr_2000000000_ISO.root'
-with ROOTFile('./../TestData/electron_Uni_R_20_cm_ISO.root') as fResponse:
+fDataName = 'I131_R_20_cm_Nr_20000000_ISO.root'
+with ROOTFile('./../TestData/Response Matrix Canberra PD450-15-500AM/gamma_Uni_R_20_cm_ISO.root') as fResponse:
     with ROOTFile('./../TestData/'+fDataName) as fData:
         # Test the class
-        myBSD = PyBSD(fResponse.Get('Energy Migration Matrix (Electron)'), fResponse.Get('Source Spectrum (Electron)'))
+        myBSD = PyBSD(fResponse.Get('Energy Migration Matrix (Gamma)'), fResponse.Get('Source Spectrum (Gamma)'))
 
         myBSD.plotMigration()
         myBSD.plotResponse()
@@ -512,12 +543,13 @@ with ROOTFile('./../TestData/electron_Uni_R_20_cm_ISO.root') as fResponse:
 
         # Run Inference
         myBSD.run(data = fData.Get('Detector Measured Spectrum'), 
-                  datatruth = fData.Get('Energy Migration Matrix (Electron)'))
-                  #datatruth = fData.Get('Source Spectrum (Electron)'))
+                  datatruth = fData.Get('Energy Migration Matrix (Gamma)'))
+
         myBSD.setAlpha(1.)
-        myBSD.sample(N=20000,B=5000)
+        myBSD.sample(N=100000,B=10000)
 
         # Plot data and unfolding results
         myBSD.plotData(fName = fDataName.split('.')[0] + '_Data.pdf')
         myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_Unfolded.pdf')
-        myBSD.plotPosteriorPDF(confInt=0.95)
+        #myBSD.plotPosteriorPDF(confInt=0.95)
+        #myBSD.plotCornerPDF()
