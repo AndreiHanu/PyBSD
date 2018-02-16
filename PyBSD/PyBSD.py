@@ -103,24 +103,19 @@ class PyBSD(object):
                     self.response.SetBinContent(i+1,
                                                 j+1,
                                                 (self.response.GetBinContent(i+1,j+1)/self.sourcetruth.GetBinContent(i+1) if np.isfinite(self.response.GetBinContent(i+1,j+1)/self.sourcetruth.GetBinContent(i+1)) else 0.))
-                                                
-                    # Self Normalize
-                    #self.response.SetBinContent(i+1,
-                    #                            j+1,
-                    #                            (self.response.GetBinContent(i+1,j+1)/tSum if np.isfinite(self.response.GetBinContent(i+1,j+1)/tSum) else 0.))
-        
+
         # Calculate the second response matrix (aka. conditional probability) using Eq. 5 from the Choudalakis paper
         # Response[i,j] = P(d = j|t = i) = P(t = i, d = j)/P(t = i)
         # Response[j|i] = M[d = j, t = i] / Truth[i]
         self.response2 = copy.deepcopy(migration2)
         for i in range(0, self.response2.GetNbinsX()):
+            tSum = np.sum([self.response2.GetBinContent(i+1,j+1) for j in range(0, self.response2.GetNbinsY())])
             for j in range(0, self.response2.GetNbinsY()):
                 with np.errstate(divide='ignore', invalid='ignore'):
                     # Normalize with Truth
                     self.response2.SetBinContent(i+1,
                                                 j+1,
                                                 (self.response2.GetBinContent(i+1,j+1)/self.source2truth.GetBinContent(i+1) if np.isfinite(self.response2.GetBinContent(i+1,j+1)/self.source2truth.GetBinContent(i+1)) else 0.))
-
 
     '''
     Function to plot the measure data histogram
@@ -376,364 +371,211 @@ class PyBSD(object):
 
         # Show the figure
         plt.close(figTruth)
-
-    # Function to plot the unfolded spectrum
-    def plotUnfolded(self, fName='UnfoldedHistogram.pdf'):
-        # Prepare values to plot
-        # Unfolded Value = Mode of the Bayesian posterior PDF
-        # Unfolded Uncertainty = Interquartile range of the Bayesian posterior PDF
-        # Edges: From the truth distribution
-        binVal = np.array([pm.stats.hpd(self.trace.Truth[:,i], alpha=0.5)[1] for i in range(0, self.datatruth.GetNbinsX())])
-        binValTruth = np.array([self.datatruth.GetBinContent(i+1) for i in range(0, self.datatruth.GetNbinsX())])
-        binEdge = np.array([self.datatruth.GetBinLowEdge(i+1) for i in range(0, self.datatruth.GetNbinsX() + 1)])
-        binValData = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-        binEdgeData = np.array([self.data.GetBinLowEdge(i+1) for i in range(0, self.data.GetNbinsX() + 1)])
-
-        # Estimate the significance between truth and the unfolded spectrum by
-        # calculating where the truth value fits in the the CDF of the unfolded MCMC tracefrom scipy import interpolate
-        from scipy import interpolate
-        significance = np.array([interpolate.interp1d(np.sort(self.trace.Truth[:,i]), np.array(range(len(self.trace.Truth[:,i])))/float(len(self.trace.Truth[:,i])), fill_value='extrapolate')(binValTruth[0][i]) for i in range(0, self.datatruth.GetNbinsX())])
-        #print significance, significance.shape
-        significance = np.maximum(np.zeros(significance.shape) + 0.0000001, np.minimum(np.ones(significance.shape) - 0.0000001, significance))
-        #print significance
-        significance = -st.norm.ppf(significance)
-        #print significance
-        '''
-        for i in range(0, len(significance)):
-            # Check if we have a large or small number of samples
-            if binVal[i] >= 10:
-                # Apply Normal distribution model
-                significance[i] = -st.norm.ppf(significance[i])
-            else:
-                # Apply Poisson distribution model
-                significance[i] = -st.poisson.ppf(significance[i], binVal[i])
-        '''
-   
-        # Plot the truth spectrum
-        #figUnfolded, [axData,axUnfolded,axSignificance] = plt.subplots(3,2, gridspec_kw = {'height_ratios':[4,4,3]},sharex=True)
-        figUnfolded = plt.figure()
-        gs = gridspec.GridSpec(3, 1, height_ratios = [4,4,3]) 
-
-        # Plot the data spectrum
-        axData = plt.subplot(gs[0,0])
-        axData.plot(sorted(np.concatenate((binEdgeData[1:],binEdgeData[:-1]))), np.repeat(binValData, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='Measured Spectrum')
-
-        # Plot the true spectrum and the unfolded spectrum
-        axUnfolded = plt.subplot(gs[1,0])
-        axUnfolded.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), np.repeat(binValTruth[0], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='True Spectrum (Electron)')
-
-        # Calculate the Bayesian credible regions and plot it over the data
-        bCR = [0.68,0.95,0.997]
-        crColPal = sns.color_palette('Purples')
-        iCR = 5
-        for i, cr in enumerate(bCR):
-            binCR = pm.stats.hpd(self.trace.Truth[:], alpha=(1-cr))
-            axUnfolded.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 
-                                    np.repeat(binCR[:,0], 2), 
-                                    np.repeat(binCR[:,1], 2), 
-                                    alpha=iCR/10., 
-                                    color=crColPal[iCR],
-                                    label=str(cr*100)+ '% CR')
-
-            iCR -= 1
-
-        # Plot the 50% (mean) of the Bayesian posterior PDF
-        axUnfolded.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 
-                          np.repeat(binVal[0], 2),
-                          lw=1.25, 
-                          color='red', 
-                          linestyle="-", 
-                          drawstyle='steps', 
-                          label='Reconstructed Spectrum')
-
-        # Plot the significance between the unfolded spectrum and the true spectrum
-        axSignificance = plt.subplot(gs[2,0], sharex = axUnfolded)
-
-        axSignificance.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 0, np.repeat(significance[0], 2), where = np.repeat(significance[0], 2) > 0, color='red', alpha=0.2)
-        axSignificance.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 0, np.repeat(significance[0], 2), where = np.repeat(significance[0], 2) < 0, color='blue', alpha=0.2)
-        axSignificance.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), np.repeat(significance[0], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
-         
-        # Print the unfolded quantiles
-        '''
-        sumBinValTruth = np.sum(binValTruth)
-        sumBinValQ = np.percentile(self.trace.Truth[:], [2.5,50,97.5], axis=0)
-        axUnfolded.text(0.02, 0.95,
-                            'True: ' + r'${0:g}$'.format(np.rint(sumBinValTruth)) + 
-                            '\nReco: ' + r'${0:g}^{{+{1:g}}}_{{-{2:g}}}$'
-                            .format(np.rint(np.sum(sumBinValQ[1,:])),
-                                    np.rint(np.sum(sumBinValQ[2,:]) - np.sum(sumBinValQ[1,:])),
-                                    np.rint(np.sum(sumBinValQ[1,:]) - np.sum(sumBinValQ[0,:]))),
-                            transform=axUnfolded.transAxes, 
-                            verticalalignment='top')
-        '''
-
-        # Compare True and Reco using significance
-        axSignificance.text(0.02, 0.95, 
-                              '$\sum$ Significance: {significance_tot:g} '
-                              .expandtabs().format(significance_tot=np.sum(significance[0])),
-                              transform=axSignificance.transAxes, 
-                              verticalalignment='top', 
-                              fontdict={'family' : 'monospace'})
-        
-        # Figure properties
-        axData.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
-        #axData.set_ylabel('Counts' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
-        axData.set_ylabel('Counts')
-        axData.set_xlim(min(binEdgeData),max(binEdgeData))
-        axData.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(binValData)))))
-        axData.set_xscale('log', nonposy='clip')
-        axData.set_yscale('log', nonposy='clip')
-        #axData.set_title('Measured Spectrum')
-        axData.legend(loc='best')
-        #axData.set_yticks(axData.get_yticks()[:-2])
-        axData.xaxis.set_ticks_position('top')
-        axData.xaxis.set_label_position('top') 
-
-        #axUnfolded.set_xlabel('True Energy (keV)')
-        #axUnfolded.set_ylabel('Fluence (cm$^{-2}$)' if not self.datatruth.GetYaxis().GetTitle() else self.datatruth.GetYaxis().GetTitle())
-        axUnfolded.set_ylabel('Fluence (cm$^{-2}$)')
-        axUnfolded.set_xlim(min(binEdge[0]),max(binEdge[0]))
-        axUnfolded.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(np.maximum(binValTruth[0],binValTruth[1]))))))
-        axUnfolded.set_xscale('log', nonposy='clip')
-        axUnfolded.set_yscale('log', nonposy='clip')
-        axUnfolded.legend(loc='best')
-        #axUnfolded.set_title('Reconstructed Spectrum')
-        axUnfolded.set_yticks(axUnfolded.get_yticks()[:-2])
-        #axUnfolded.grid(linestyle='dotted', which="both")
-
-        axSignificance.set_ylabel('Significance')  
-        axSignificance.set_xlabel('True Energy (keV)')
-        axSignificance.set_xlim(min(binEdge[0]),max(binEdge[0]))
-        axSignificance.set_ylim(-5,5)
-        axSignificance.set_xscale('log', nonposy='clip')
-
-        plt.setp(axUnfolded.get_xticklabels(), visible=False)
-        #plt.setp(axUnfolded2.get_yticklabels(), visible=False)
-
-        # Fine-tune figure 
-        figUnfolded.tight_layout()
-        figUnfolded.subplots_adjust(hspace=0.)
-
-        # Save the figure 
-        plt.savefig(fName, bbox_inches="tight")
-        print 'Unfolded plot saved to: ' + fName
-
-        # Show the figure
-        plt.close(figUnfolded)
     
-   
-    # Function to plot the unfolded spectrum
-    def plotUnfoldedMultiDimensionalTrace(self, fName='UnfoldedHistogram.pdf'):
-        # Prepare values to plot
-        # Unfolded Value = Mode of the Bayesian posterior PDF
-        # Unfolded Uncertainty = Interquartile range of the Bayesian posterior PDF
-        # Edges: From the truth distribution
-        print self.trace.Truth.shape
-        binVal = np.array([[pm.stats.hpd(self.trace.Truth[:,i,0], alpha=0.5)[1] for i in range(0, self.datatruth.GetNbinsX())],
-                           [pm.stats.hpd(self.trace.Truth[:,i,1], alpha=0.5)[1] for i in range(0, self.datatruth2.GetNbinsX())]])
-        binValTruth = np.array([[self.datatruth.GetBinContent(i+1) for i in range(0, self.datatruth.GetNbinsX())],
-                                [self.datatruth2.GetBinContent(i+1) for i in range(0, self.datatruth2.GetNbinsX())]])
-        binEdge = np.array([[self.datatruth.GetBinLowEdge(i+1) for i in range(0, self.datatruth.GetNbinsX() + 1)],
-                            [self.datatruth2.GetBinLowEdge(i+1) for i in range(0, self.datatruth2.GetNbinsX() + 1)]])
-        binValData = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-        binEdgeData = np.array([self.data.GetBinLowEdge(i+1) for i in range(0, self.data.GetNbinsX() + 1)])
+    def calcSignificance(self, expected, observed):
+        '''
+        Function to calculate the statistical significance between two spectra using the algorithm described in Ref [1].
 
-        # Estimate the significance between truth and the unfolded spectrum by
-        # calculating where the truth value fits in the the CDF of the unfolded MCMC tracefrom scipy import interpolate
-        from scipy import interpolate
-        significance = np.array([[interpolate.interp1d(np.sort(self.trace.Truth[:,i,0]), np.array(range(len(self.trace.Truth[:,i,0])))/float(len(self.trace.Truth[:,i,0])), fill_value='extrapolate')(binValTruth[0][i]) for i in range(0, self.datatruth.GetNbinsX())],
-                                 [interpolate.interp1d(np.sort(self.trace.Truth[:,i,1]), np.array(range(len(self.trace.Truth[:,i,1])))/float(len(self.trace.Truth[:,i,0])), fill_value='extrapolate')(binValTruth[1][i]) for i in range(0, self.datatruth2.GetNbinsX())]])
-        #print significance, significance.shape
-        significance = np.maximum(np.zeros(significance.shape) + 0.0000001, np.minimum(np.ones(significance.shape) - 0.0000001, significance))
-        #print significance
-        significance = -st.norm.ppf(significance)
-        #print significance
+        References:
+        [1] Choudalakis, Georgios, and Diego Casadei. "Plotting the differences between data and expectation." The European Physical Journal Plus 127.2 (2012): 25.
         '''
-        for i in range(0, len(significance)):
-            # Check if we have a large or small number of samples
-            if binVal[i] >= 10:
-                # Apply Normal distribution model
-                significance[i] = -st.norm.ppf(significance[i])
+        pvalue = np.zeros(observed.size)
+        zscore = np.zeros(observed.size)
+        for i in range(observed.size):
+            # Calculate the p-value
+            if observed[i] > expected[i]:
+                pvalue[i] = 1 - ROOT.Math.inc_gamma_c(observed[i], expected[i])
             else:
-                # Apply Poisson distribution model
-                significance[i] = -st.poisson.ppf(significance[i], binVal[i])
-        '''
+                pvalue[i] = ROOT.Math.inc_gamma_c(observed[i] + 1, expected[i])
+            
+            # Calculate the z-score using the p-value
+            if pvalue[i] > 1E-16:
+                zscore[i] = ROOT.TMath.ErfInverse(1.0 - 2.0*pvalue[i])*ROOT.TMath.Sqrt(2.0)
+            else:
+                # Inversion is not possible, try something else
+                u = -2. * np.log( pvalue[i] * np.sqrt(2.*np.pi))
+                if np.isfinite(u):
+                    zscore[i] = np.sqrt(u - np.log(u))
+                else:
+                    zscore[i] = 40.
+                #u = -2.0 * ROOT.TMath.Log( pvalue[i]*ROOT.TMath.Sqrt( 2.*ROOT.TMath.Pi()))
+                #zscore[i] = np.nan_to_num(ROOT.TMath.Sqrt(u - ROOT.TMath.Log(u)))
+
+            # If there is a deficit of events, and its statistically significant (ie. pvalue < 0.5)
+            # then take the negative of the z-value.
+            if observed[i] < expected[i] and pvalue[i] < 0.5:
+                zscore[i] *= -1.
+
+        # Return signed z-score only if p-value < 0.5
+        # See: https://arxiv.org/pdf/1111.2062.pdf
+        zscore[pvalue >= 0.5] = 0.
+
+        return zscore
    
-        # Plot the truth spectrum
-        #figUnfolded, [axData,axUnfolded,axSignificance] = plt.subplots(3,2, gridspec_kw = {'height_ratios':[4,4,3]},sharex=True)
+    def plotUnfolded(self, fName='UnfoldedHistogram.pdf', plotTruth = True, plotSignificance = True):
+        '''
+        Function to plot the reconstructed spectrum from a multidimensional Bayesian unfolding
+        NOTE: This function is to be used when multiple response matrices are used in the unfolding.
+        '''
+        binDataVal = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
+        binDataEdge = np.array([self.data.GetBinLowEdge(i+1) for i in range(0, self.data.GetNbinsX() + 1)])
+
+        binTruthVal = np.array([[self.datatruth.GetBinContent(i+1) for i in range(0, self.datatruth.GetNbinsX())],
+                                [self.datatruth2.GetBinContent(i+1) for i in range(0, self.datatruth2.GetNbinsX())]])
+        binTruthEdge = np.array([[self.datatruth.GetBinLowEdge(i+1) for i in range(0, self.datatruth.GetNbinsX() + 1)],
+                                 [self.datatruth2.GetBinLowEdge(i+1) for i in range(0, self.datatruth2.GetNbinsX() + 1)]])
+
+        binRecoVal = np.array([np.mean(self.trace.Truth,0)[:,0],
+                               np.mean(self.trace.Truth,0)[:,1]])
+        binRecoEdge = np.array([[self.response.GetXaxis().GetBinLowEdge(i+1) for i in range(0, self.response.GetNbinsX() + 1)],
+                                [self.response2.GetXaxis().GetBinLowEdge(i+1) for i in range(0, self.response2.GetNbinsX() + 1)]])
+   
+        # Create a figure and a gridspec to plot the spectrum
         figUnfolded = plt.figure()
-        gs = gridspec.GridSpec(3, 2, height_ratios = [4,4,3]) 
+
+        outerGS = gridspec.GridSpec(2, 1, height_ratios = [5, 10]) 
+        #make nested gridspecs
+        dataGS = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec = outerGS[0], hspace = 0.)
+        recoGS = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec = outerGS[1], hspace = 0., wspace = 0.15)
 
         # Plot the data spectrum
-        axData = plt.subplot(gs[0,0])
-        axData.plot(sorted(np.concatenate((binEdgeData[1:],binEdgeData[:-1]))), np.repeat(binValData, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='Measured Spectrum')
-        axData2 = plt.subplot(gs[0,1])
-        axData2.plot(sorted(np.concatenate((binEdgeData[1:],binEdgeData[:-1]))), np.repeat(binValData, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='Measured Spectrum')
+        axData = plt.subplot(dataGS[0])
+        axData.plot(sorted(np.concatenate((binDataEdge[1:],binDataEdge[:-1]))), np.repeat(binDataVal, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
 
-        # Plot the true spectrum and the unfolded spectrum
-        axUnfolded = plt.subplot(gs[1,0])
-        axUnfolded.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), np.repeat(binValTruth[0], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='True Spectrum (Electron)')
-        axUnfolded2 = plt.subplot(gs[1,1])
-        axUnfolded2.plot(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), np.repeat(binValTruth[1], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps', label='True Spectrum (Gamma)')
-
-        # Calculate the Bayesian credible regions and plot it over the data
-        bCR = [0.68,0.95,0.997]
-        crColPal = sns.color_palette('Purples')
-        iCR = 5
-        for i, cr in enumerate(bCR):
-            binCR = pm.stats.hpd(self.trace.Truth[:,:,0], alpha=(1-cr))
-            axUnfolded.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 
-                                    np.repeat(binCR[:,0], 2), 
-                                    np.repeat(binCR[:,1], 2), 
-                                    alpha=iCR/10., 
-                                    color=crColPal[iCR],
-                                    label=str(cr*100)+ '% CR')
-            
-            binCR2 = pm.stats.hpd(self.trace.Truth[:,:,1], alpha=(1-cr))
-            axUnfolded2.fill_between(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), 
-                                    np.repeat(binCR2[:,0], 2), 
-                                    np.repeat(binCR2[:,1], 2), 
-                                    alpha=iCR/10., 
-                                    color=crColPal[iCR],
-                                    label=str(cr*100)+ '% CR')
-
-            iCR -= 1
-
-        # Plot the 50% (mean) of the Bayesian posterior PDF
-        axUnfolded.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 
-                          np.repeat(binVal[0], 2),
-                          lw=1.25, 
-                          color='red', 
-                          linestyle="-", 
-                          drawstyle='steps', 
-                          label='Reconstructed Spectrum')
-        axUnfolded2.plot(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), 
-                          np.repeat(binVal[1], 2),
-                          lw=1.25, 
-                          color='red', 
-                          linestyle="-", 
-                          drawstyle='steps', 
-                          label='Reconstructed Spectrum')
-
-        # Plot the significance between the unfolded spectrum and the true spectrum
-        axSignificance = plt.subplot(gs[2,0], sharex = axUnfolded)
-
-        axSignificance.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 0, np.repeat(significance[0], 2), where = np.repeat(significance[0], 2) > 0, color='red', alpha=0.2)
-        axSignificance.fill_between(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), 0, np.repeat(significance[0], 2), where = np.repeat(significance[0], 2) < 0, color='blue', alpha=0.2)
-        axSignificance.plot(sorted(np.concatenate((binEdge[0][1:],binEdge[0][:-1]))), np.repeat(significance[0], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
-        
-        axSignificance2 = plt.subplot(gs[2,1], sharex = axUnfolded2)
-
-        axSignificance2.fill_between(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), 0, np.repeat(significance[1], 2), where = np.repeat(significance[1], 2) > 0, color='red', alpha=0.2)
-        axSignificance2.fill_between(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), 0, np.repeat(significance[1], 2), where = np.repeat(significance[1], 2) < 0, color='blue', alpha=0.2)
-        axSignificance2.plot(sorted(np.concatenate((binEdge[1][1:],binEdge[1][:-1]))), np.repeat(significance[1], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
-        
-        # Print the unfolded quantiles
-        '''
-        sumBinValTruth = np.sum(binValTruth)
-        sumBinValQ = np.percentile(self.trace.Truth[:], [2.5,50,97.5], axis=0)
-        axUnfolded.text(0.02, 0.95,
-                            'True: ' + r'${0:g}$'.format(np.rint(sumBinValTruth)) + 
-                            '\nReco: ' + r'${0:g}^{{+{1:g}}}_{{-{2:g}}}$'
-                            .format(np.rint(np.sum(sumBinValQ[1,:])),
-                                    np.rint(np.sum(sumBinValQ[2,:]) - np.sum(sumBinValQ[1,:])),
-                                    np.rint(np.sum(sumBinValQ[1,:]) - np.sum(sumBinValQ[0,:]))),
-                            transform=axUnfolded.transAxes, 
-                            verticalalignment='top')
-        '''
-
-        # Compare True and Reco using significance
-        axSignificance.text(0.02, 0.95, 
-                              '$\sum$ Significance: {significance_tot:g} '
-                              .expandtabs().format(significance_tot=np.sum(significance[0])),
-                              transform=axSignificance.transAxes, 
-                              verticalalignment='top', 
-                              fontdict={'family' : 'monospace'})
-        
-        axSignificance2.text(0.02, 0.95, 
-                              '$\sum$ Significance: {significance_tot:g} '
-                              .expandtabs().format(significance_tot=np.sum(significance[1])),
-                              transform=axSignificance2.transAxes, 
-                              verticalalignment='top', 
-                              fontdict={'family' : 'monospace'})
-        
-        # Figure properties
+        axData.set_title('Measured Spectrum')
         axData.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
-        #axData.set_ylabel('Counts' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
-        axData.set_ylabel('Counts')
-        axData.set_xlim(min(binEdgeData),max(binEdgeData))
-        axData.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(binValData)))))
-        axData.set_xscale('log', nonposy='clip')
-        axData.set_yscale('log', nonposy='clip')
-        #axData.set_title('Measured Spectrum')
-        axData.legend(loc='best')
-        #axData.set_yticks(axData.get_yticks()[:-2])
-        axData.xaxis.set_ticks_position('top')
-        axData.xaxis.set_label_position('top') 
+        axData.set_ylabel('Counts' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
+        axData.set_xlim(min(binDataEdge),max(binDataEdge))
+        axData.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(binDataVal)))))
+        axData.set_xscale('log')
+        axData.set_yscale('log')
 
-        axData2.set_xlabel('Measured Energy (keV)' if not self.data.GetXaxis().GetTitle() else self.data.GetXaxis().GetTitle())
-        #axData2.set_ylabel('Counts' if not self.data.GetYaxis().GetTitle() else self.data.GetYaxis().GetTitle())
-        axData2.set_ylabel('Counts')
-        axData2.set_xlim(min(binEdgeData),max(binEdgeData))
-        axData2.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(binValData)))))
-        axData2.set_xscale('log', nonposy='clip')
-        axData2.set_yscale('log', nonposy='clip')
-        #axData2.set_title('Measured Spectrum')
-        axData2.legend(loc='best')
-        #axData2.set_yticks(axData.get_yticks()[:-2])
-        axData2.xaxis.set_ticks_position('top')
-        axData2.xaxis.set_label_position('top') 
-        axData2.yaxis.set_ticks_position('right')
-        axData2.yaxis.set_label_position('right') 
+        # Plot the unfolded spectrum
+        axUnfolded = plt.subplot(recoGS[0,0])
+        axUnfolded2 = plt.subplot(recoGS[0,1], sharey = axUnfolded)
 
-        #axUnfolded.set_xlabel('True Energy (keV)')
-        #axUnfolded.set_ylabel('Fluence (cm$^{-2}$)' if not self.datatruth.GetYaxis().GetTitle() else self.datatruth.GetYaxis().GetTitle())
+        # Calculate and plot the 95% Bayesian credible regions for the unfolded spectrum
+        colPal = sns.color_palette('Purples')
+        unfoldedCR = pm.stats.hpd(self.trace.Truth, alpha=0.05)
+        pUnfoldedCR = axUnfolded.fill_between(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), 
+                                            np.repeat(unfoldedCR[:,0,0], 2), 
+                                            np.repeat(unfoldedCR[:,0,1], 2),
+                                            color=colPal[-2],
+                                            alpha=0.6)
+    
+        pUnfoldedCR2 = axUnfolded2.fill_between(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), 
+                                            np.repeat(unfoldedCR[:,1,0], 2), 
+                                            np.repeat(unfoldedCR[:,1,1], 2),
+                                            color=colPal[-2],
+                                            alpha=0.6)
+
+        # Plot the mean of the Bayesian posterior PDF
+        pUnfoldedMean, = axUnfolded.plot(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), 
+                                        np.repeat(binRecoVal[0], 2),
+                                        lw=1.25, 
+                                        color='red', 
+                                        linestyle="-", 
+                                        drawstyle='steps')
+       
+
+        pUnfoldedMean2, = axUnfolded2.plot(sorted(np.concatenate((binRecoEdge[1][1:],binRecoEdge[1][:-1]))), 
+                                        np.repeat(binRecoVal[1], 2),
+                                        lw=1.25, 
+                                        color='red', 
+                                        linestyle="-", 
+                                        drawstyle='steps')
+        
+        # Plot the truth spectrum, if it exists
+        if plotTruth:
+            pTruth, = axUnfolded.plot(sorted(np.concatenate((binTruthEdge[0][1:],binTruthEdge[0][:-1]))), np.repeat(binTruthVal[0], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
+            pTruth2, = axUnfolded2.plot(sorted(np.concatenate((binTruthEdge[1][1:],binTruthEdge[1][:-1]))), np.repeat(binTruthVal[1], 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
+
+        if not plotSignificance: axUnfolded.set_xlabel('True Energy (keV)')
+        axUnfolded.set_title('Reconstructed Beta-ray Spectrum')
         axUnfolded.set_ylabel('Fluence (cm$^{-2}$)')
-        axUnfolded.set_xlim(min(binEdge[0]),max(binEdge[0]))
-        axUnfolded.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(np.maximum(binValTruth[0],binValTruth[1]))))))
-        axUnfolded.set_xscale('log', nonposy='clip')
-        axUnfolded.set_yscale('log', nonposy='clip')
-        axUnfolded.legend(loc='best')
-        #axUnfolded.set_title('Reconstructed Spectrum')
-        axUnfolded.set_yticks(axUnfolded.get_yticks()[:-2])
-        #axUnfolded.grid(linestyle='dotted', which="both")
+        axUnfolded.set_xscale('log')
+        axUnfolded.set_yscale('log')
+        axUnfolded.set_xlim(min(binRecoEdge[0]),max(binRecoEdge[0]))
+        if plotTruth:
+            minY = np.min(np.append(binTruthVal[0][np.nonzero(binTruthVal[0])],
+                                    binTruthVal[1][np.nonzero(binTruthVal[1])]))
+            maxY = np.max(np.append(binTruthVal[0][np.isfinite(binTruthVal[0])],
+                                    binTruthVal[1][np.isfinite(binTruthVal[1])]))
+            
+            axUnfolded.legend([pTruth, (pUnfoldedCR, pUnfoldedMean)], ['Truth','Reconstructed (95% BCI)'], loc='best')
+        else:
+            minY = np.min(np.append(binRecoVal[0][np.nonzero(binRecoVal[0])],
+                                    binRecoVal[1][np.nonzero(binRecoVal[1])]))
+            maxY = np.max(np.append(binTruthVal[0][np.isfinite(binRecoVal[0])],
+                                    binTruthVal[1][np.isfinite(binRecoVal[1])]))
 
-        #axUnfolded2.set_xlabel('True Energy (keV)')
-        #axUnfolded2.set_ylabel('Fluence (cm$^{-2}$)' if not self.datatruth.GetYaxis().GetTitle() else self.datatruth.GetYaxis().GetTitle())
+            axUnfolded.legend([(pUnfoldedCR, pUnfoldedMean)], ['Reconstructed (95% BCI)'], loc='best')
+        
+        axUnfolded.set_ylim(np.power(10, np.ceil(np.log10(minY))),
+                                np.power(10, np.ceil(np.log10(maxY))))
+
+        if not plotSignificance: axUnfolded2.set_xlabel('True Energy (keV)')
+        axUnfolded2.set_title('Reconstructed Gamma-ray Spectrum')
         axUnfolded2.set_ylabel('Fluence (cm$^{-2}$)')
-        axUnfolded2.set_xlim(min(binEdge[1]),max(binEdge[1]))
-        axUnfolded2.set_ylim(1., np.power(10, np.ceil(np.log10(np.max(np.maximum(binValTruth[0],binValTruth[1]))))))
-        axUnfolded2.set_xscale('log', nonposy='clip')
-        axUnfolded2.set_yscale('log', nonposy='clip')
-        axUnfolded2.legend(loc='best')
-        #axUnfolded2.set_title('Reconstructed Spectrum')
-        axUnfolded2.set_yticks(axUnfolded2.get_yticks()[:-2])
-        #axUnfolded2.grid(linestyle='dotted', which="both")
-        axUnfolded2.yaxis.set_ticks_position('right')
-        axUnfolded2.yaxis.set_label_position('right') 
+        axUnfolded2.set_xscale('log')
+        axUnfolded2.set_yscale('log')
+        axUnfolded2.set_xlim(min(binRecoEdge[1]),max(binRecoEdge[1]))
+        if plotTruth:
+            axUnfolded2.legend([pTruth2, (pUnfoldedCR2, pUnfoldedMean2)], ['Truth','Reconstructed (95% BCI)'], loc='best')
+        else:
+            axUnfolded2.legend([(pUnfoldedCR2, pUnfoldedMean2)], ['Reconstructed (95% BCI)'], loc='best')
+        
+        # Plot the significance between the unfolded spectrum and the true spectrum
+        if plotSignificance:
 
-        axSignificance.set_ylabel('Significance')  
-        axSignificance.set_xlabel('True Energy (keV)')
-        axSignificance.set_xlim(min(binEdge[0]),max(binEdge[0]))
-        axSignificance.set_ylim(-5,5)
-        axSignificance.set_xscale('log', nonposy='clip')
+            # Calculate the statistical significance using the signed zscore method
+            significance = self.calcSignificance(binTruthVal[0], binRecoVal[0])
+            significance2 = self.calcSignificance(binTruthVal[1], binRecoVal[1])
 
-        axSignificance2.set_ylabel('Significance')  
-        axSignificance2.set_xlabel('True Energy (keV)')
-        axSignificance2.set_xlim(min(binEdge[1]),max(binEdge[1]))
-        axSignificance2.set_ylim(-5,5)
-        axSignificance2.set_xscale('log', nonposy='clip')
-        axSignificance2.yaxis.set_ticks_position('right')
-        axSignificance2.yaxis.set_label_position('right')
+            axSignificance = plt.subplot(recoGS[1,0], sharex = axUnfolded)
+            axSignificance2 = plt.subplot(recoGS[1,1], sharex = axUnfolded2)
 
-        plt.setp(axUnfolded.get_xticklabels(), visible=False)
-        plt.setp(axUnfolded2.get_xticklabels(), visible=False)
-        #plt.setp(axUnfolded2.get_yticklabels(), visible=False)
-        #plt.setp(axSignificance2.get_yticklabels(), visible=False)
+            axSignificance.fill_between(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), 0, np.repeat(significance, 2), where = np.repeat(significance, 2) > 0, color='red', alpha=0.2)
+            axSignificance.fill_between(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), 0, np.repeat(significance, 2), where = np.repeat(significance, 2) < 0, color='blue', alpha=0.2)
+            axSignificance.plot(sorted(np.concatenate((binRecoEdge[0][1:],binRecoEdge[0][:-1]))), np.repeat(significance, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
+            
+            axSignificance2.fill_between(sorted(np.concatenate((binRecoEdge[1][1:],binRecoEdge[1][:-1]))), 0, np.repeat(significance2, 2), where = np.repeat(significance2, 2) > 0, color='red', alpha=0.2)
+            axSignificance2.fill_between(sorted(np.concatenate((binRecoEdge[1][1:],binRecoEdge[1][:-1]))), 0, np.repeat(significance2, 2), where = np.repeat(significance2, 2) < 0, color='blue', alpha=0.2)
+            axSignificance2.plot(sorted(np.concatenate((binRecoEdge[1][1:],binRecoEdge[1][:-1]))), np.repeat(significance2, 2), lw=1.25, color='black', linestyle="-", drawstyle='steps')
+            
+            # Compare True and Reco using significance
+            axSignificance.text(0.02, 0.95, 
+                                '$\sum$ Significance: {significance_tot:g} '
+                                .expandtabs().format(significance_tot=np.sum(significance)),
+                                transform=axSignificance.transAxes, 
+                                verticalalignment='top', 
+                                fontdict={'family' : 'monospace'})
+            
+            axSignificance2.text(0.02, 0.95, 
+                                '$\sum$ Significance: {significance_tot:g} '
+                                .expandtabs().format(significance_tot=np.sum(significance2)),
+                                transform=axSignificance2.transAxes, 
+                                verticalalignment='top', 
+                                fontdict={'family' : 'monospace'})
+        
+            # Figure properties
+            axSignificance.set_ylabel('Significance')  
+            axSignificance.set_xlabel('True Energy (keV)')
+            axSignificance.set_xlim(min(binRecoEdge[0]),max(binRecoEdge[0]))
+            axSignificance.set_ylim(-5,5)
+            axSignificance.set_xscale('log', nonposy='clip')
+
+            axSignificance2.set_ylabel('Significance')  
+            axSignificance2.set_xlabel('True Energy (keV)')
+            axSignificance2.set_xlim(min(binRecoEdge[1]),max(binRecoEdge[1]))
+            axSignificance2.set_ylim(-5,5)
+            axSignificance2.set_xscale('log', nonposy='clip')
+
+            plt.setp(axUnfolded.get_xticklabels(), visible=False)
+            plt.setp(axUnfolded2.get_xticklabels(), visible=False)
 
         # Fine-tune figure 
         figUnfolded.tight_layout()
-        figUnfolded.subplots_adjust(hspace=0., wspace = 0.075)
 
         # Save the figure 
         plt.savefig(fName, bbox_inches="tight")
@@ -886,51 +728,43 @@ class PyBSD(object):
 
             self.var_alpha = theano.shared(value = 1.0, borrow = False)
 
-            
-            # Define upper and lower bounds for the prior probabilities
-            colSum = np.array([np.sum([self.response.GetBinContent(i+1,j+1) for j in range(0, self.response.GetNbinsY())]) for i in range(0, self.response.GetNbinsX())])
-            colSum[colSum == 0.] = np.min(colSum[colSum > 0.])
-            colSum2 = np.array([np.sum([self.response2.GetBinContent(i+1,j+1) for j in range(0, self.response2.GetNbinsY())]) for i in range(0, self.response2.GetNbinsX())])
-            colSum2[colSum2 == 0.] = np.min(colSum2[colSum2 > 0.])
-            netColSum = colSum + colSum2
+            # Calculate the Geometric Factor from the normalize response matrix
+            GeomFactResp1 = np.array([np.sum([self.response.GetBinContent(i+1,j+1) for j in range(0, self.response.GetNbinsY())]) for i in range(0, self.response.GetNbinsX())])
+            GeomFactResp2 = np.array([np.sum([self.response2.GetBinContent(i+1,j+1) for j in range(0, self.response2.GetNbinsY())]) for i in range(0, self.response2.GetNbinsX())])
 
-            print colSum/netColSum
-            print colSum2/netColSum
+            # Calculate the scaling factor for upper bounds on the prior probabilities
+            ScalFact1 = GeomFactResp1/(GeomFactResp1+GeomFactResp2)
+            ScalFact1[np.isclose(ScalFact1, 0)] = 1E-15
+            #ScalFact1[ScalFact1 < 1E-5] = 1E-5
+            ScalFact2 = GeomFactResp2/(GeomFactResp1+GeomFactResp2)
+            ScalFact2[np.isclose(ScalFact2, 0)] = 1E-15
 
             # Total number of data counts
-            nCounts = np.sum([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
+            nCounts = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
+
+            # Calculate Upper Bounds
+            #uBound1 = np.ones(self.sourcetruth.GetNbinsX())*np.average(nCounts)*ScalFact1
+            uBound1 = np.ones(self.sourcetruth.GetNbinsX())*np.max(nCounts)/(GeomFactResp1+GeomFactResp2)*ScalFact1
+            uBound1[np.isinf(uBound1)] = np.max(uBound1[np.isfinite(uBound1)])
+            #uBound1 = np.ones(self.sourcetruth.GetNbinsX())*0.001
+
+            #uBound2 = np.ones(self.sourcetruth.GetNbinsX())*np.average(nCounts)*ScalFact2
+            uBound2 = np.ones(self.sourcetruth.GetNbinsX())*np.max(nCounts)/(GeomFactResp1+GeomFactResp2)*ScalFact2
+            #uBound2 = np.ones(self.sourcetruth.GetNbinsX())*nCounts*ScalFact2
+            uBound2[np.isinf(uBound1)] = np.max(uBound2[np.isfinite(uBound2)])
 
             # Define the prior probability density pi(T)
             self.T = pm.Uniform('Truth', 
-                                lower=np.zeros((self.sourcetruth.GetNbinsX(),2)),
-                                upper=np.array([np.ones(self.sourcetruth.GetNbinsX())*np.max(nCounts)/np.min(colSum)*(colSum/netColSum),
-                                                np.ones(self.source2truth.GetNbinsX())*np.max(nCounts)/np.min(colSum2)*(colSum2/netColSum)]).T, 
+                                lower = np.zeros((self.sourcetruth.GetNbinsX(),2)),
+                                upper = np.array([uBound1,uBound2]).T, 
                                 shape = (self.sourcetruth.GetNbinsX(),2))
-            '''
-            self.T2 = pm.Uniform('Truth2', 
-                                lower=np.zeros(self.source2truth.GetNbinsX()),
-                                upper=np.ones(self.source2truth.GetNbinsX())*np.max(nCounts)/np.min(colSum2)*(colSum2/netColSum), 
-                                shape = (self.source2truth.GetNbinsX()))
-            '''
-
-            '''
-            dataMean = 10000*np.mean([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-            dataStd = 1000*np.std([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())])
-
-            #BoundedNormal = pm.Bound(pm.Normal, lower=0.)
-            self.T = pm.Bound(pm.Normal, lower=0.0)('Truth', mu=dataMean, sd=dataStd, shape=(self.sourcetruth.GetNbinsX()))
-            self.T2 = pm.Bound(pm.Normal, lower=0.0)('Truth2', mu=dataMean, sd=dataStd, shape=(self.source2truth.GetNbinsX()))
-            '''
 
             # Define Eq.8
             # TODO: Add background & multiple response matrices/priors
-            self.var_response3 = np.dstack((self.asMat([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())]),
+            self.var_response = np.dstack((self.asMat([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())]),
                                        self.asMat([[self.response2.GetBinContent(i+1,j+1) for i in range(0, self.response2.GetNbinsX())] for j in range(0, self.response2.GetNbinsY())])))
-            print self.var_response3, self.var_response3.shape
-            #self.var_response = theano.shared(value = self.asMat([[self.response.GetBinContent(i+1,j+1) for i in range(0, self.response.GetNbinsX())] for j in range(0, self.response.GetNbinsY())]))
-            #self.var_response2 = theano.shared(value = self.asMat([[self.response2.GetBinContent(i+1,j+1) for i in range(0, self.response2.GetNbinsX())] for j in range(0, self.response2.GetNbinsY())]))
-            #self.R = theano.tensor.dot(self.var_response, self.T) + theano.tensor.dot(self.var_response2, self.T2)
-            self.R = theano.tensor.tensordot(self.var_response3, self.T, axes=2)
+            #print self.var_response, self.var_response.shape
+            self.R = theano.tensor.tensordot(self.var_response, self.T, axes=2)
             
             # Define the Poisson likelihood, L(D|T) in Eq. 3, for the measured data  
             self.U = pm.Poisson('Likelihood', 
@@ -938,10 +772,12 @@ class PyBSD(object):
                                 observed = theano.shared(value = np.array([self.data.GetBinContent(i+1) for i in range(0, self.data.GetNbinsX())]), borrow = False), 
                                 shape = (self.data.GetNbinsX(), 1))
 
+    
+
     # Samples the posterior with N toy experiments
     # Saves the toys in self.trace, the unfolded distribution mean and mode in self.hunf and self.hunf_mode respectivel
     # the sqrt of the variance in self.hunf_err
-    def sampleADVI(self, iterations = 1000000, samples = 100000):
+    def sampleADVI(self, iterations = 1000000, samples = 50000):
         '''
         Function to sample the posterior distribution using the ADVI variational inference algorithm.
         The outputs from this algorithm can be used to update the prior estimate before a more general
@@ -980,7 +816,6 @@ class PyBSD(object):
             # https://tdhopper.com/blog/speeding-up-pymc3-nuts-sampler/
             #print 'Initialize the sampling using ADVI ...'
             mu, sds, elbo = pm.variational.advi(n=200000)
-            print mu, sds
 
             # Initialization using MAP or some other algorithm
             #print 'Finding a good starting point ...'
@@ -1005,6 +840,48 @@ class PyBSD(object):
             self.trace = pm.sample(self.Samples,
                                    tune = self.Burn,
                                    start = mu,
+                                   step=step)
+            
+
+            # Print a summary of the MCMC trace      
+            pm.summary(self.trace)
+    
+    def sampleMH(self, N = 10000, B = 10000):
+        '''
+        Function to sample the posterior distribution using a Markov Chain Monte Carlo (MCMC) and the
+        Metropolis Hastings algorithm in PyMC3.
+        ''' 
+        self.Samples = N
+        self.Burn = B
+        with self.model:
+            # Initialize with ADVI to speedup NUTS
+            # https://tdhopper.com/blog/speeding-up-pymc3-nuts-sampler/
+            #print 'Initialize the sampling using ADVI ...'
+            #mu, sds, elbo = pm.variational.advi(n=200000)
+            #print mu, sds
+
+            # Initialization using MAP or some other algorithm
+            #print 'Finding a good starting point ...'
+            #mu, sds, elbo = pm.variational.advi(n=200000)
+            #start = pm.find_MAP(model = self.model)
+
+            # Select the Posterior sampling algorithm
+            print 'Sampling the posterior using Metropolis ...'
+            step = pm.Metropolis()
+
+            # Sample
+            '''
+            self.trace = pm.sample(self.Samples,
+                                   tune = self.Burn,
+                                   start = start,
+                                   step = step,
+                                   chains = 1, 
+                                   njobs = 1)
+            '''
+            
+            self.trace = pm.sample(self.Samples,
+                                   tune = self.Burn,
+                                   #start = mu,
                                    step=step)
             
 
@@ -1057,11 +934,12 @@ class ROOTFile(object):
         self.file.Close()
 
 # Load the response and measured data from the ROOT file
-#fDataName = 'electron_Power_10_10000_keV_alpha_-3_R_20_cm_Nr_200000000_ISO.root'
-fDataName = 'gamma_Power_10_10000_keV_alpha_-2_R_35_cm_Nr_200000000_ISO.root'
-with ROOTFile('./../TestData/Response Matrix Canberra PD450-15-500AM/electron_Uni_R_25_cm_ISO.root') as fResponse:
-    with ROOTFile('./../TestData/Response Matrix Canberra PD450-15-500AM/gamma_Uni_R_25_cm_ISO.root') as fResponse2:
-        with ROOTFile('./../TestData/Gamma Power Law Spectrum/'+fDataName) as fData:
+#fDataName = 'gamma_Power_10_10000_keV_alpha_-2_R_35_cm_Nr_200000000_ISO.root'
+fDataName = '23JAN2018_LaBr3_BA_U1_B06_HL_150cm.root'
+with ROOTFile('./../TestData/Canberra PD450-15-500AM/Response Matrix/electron_Uni_R_25_cm_ISO.root') as fResponse:
+    with ROOTFile('./../TestData/Canberra PD450-15-500AM/Response Matrix/gamma_Uni_R_25_cm_ISO.root') as fResponse2:
+        with ROOTFile('./../../23JAN2018 BA Unit 1 Boiler 6 Measurements/'+fDataName) as fData:
+        #with ROOTFile('./../TestData/Canberra PD450-15-500AM/Gamma Power Law Spectrum/'+fDataName) as fData:
             # Test the class
             myBSD = PyBSD(migration = fResponse.Get('Energy Migration Matrix (Electron)'),
                           sourcetruth = fResponse.Get('Source Spectrum (Electron)'),
@@ -1076,28 +954,30 @@ with ROOTFile('./../TestData/Response Matrix Canberra PD450-15-500AM/electron_Un
             #myBSD.plotTruth(fName = fDataName.split('.')[0] + '_Source.pdf')
 
             # Build the model
-            myBSD.buildModel(data = fData.Get('Detector Measured Spectrum'), 
-                    #datatruth = fData.Get('Detector True Spectrum (Electron)'))
-                    datatruth = fData.Get('Source Spectrum (Electron)'),
-                    datatruth2 = fData.Get('Source Spectrum (Gamma)'))
+            myBSD.buildModel(data = fData.Get('Logarithmic Energy Spectrum'))
+            #myBSD.buildModel(data = fData.Get('Detector Measured Spectrum'),
+            #                datatruth = fData.Get('Source Spectrum (Electron)'),
+            #                datatruth2 = fData.Get('Source Spectrum (Gamma)'))
 
             # Run Variational Inference
-            #myBSD.sampleADVI()
+            myBSD.sampleADVI()
             #myBSD.plotELBO(fName = fDataName.split('.')[0] + '_ELBO.pdf')
+            myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_ADVI.pdf', plotTruth = False, plotSignificance = False)
             #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_ADVI.pdf')
-            #myBSD.plotUnfoldedMultiDimensionalTrace(fName = fDataName.split('.')[0] + '_ADVI.pdf')
 
             # Run MCMC Inference
             #myBSD.sampleNUTS()
-            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_NUTS.pdf')
-            myBSD.sampleHMC()
-            myBSD.plotUnfoldedMultiDimensionalTrace(fName = fDataName.split('.')[0] + '_HMC.pdf')
+            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_NUTS.pdf', plotTruth = False, plotSignificance = False)
+            #myBSD.sampleHMC()
+            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_HMC.pdf')
+            #myBSD.sampleMH(N=1000000,B=1000000)
+            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_MH.pdf', plotTruth = False, plotSignificance = False)
+            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '_MH.pdf')
 
             #myBSD.sample(N=10000,B=10000)
 
             # Plot data and unfolding results
             #myBSD.plotData(fName = fDataName.split('.')[0] + '_Data.pdf')
-            #myBSD.plotUnfolded(fName = fDataName.split('.')[0] + '.pdf')
             #myBSD.plotAutocorrelation()
             #myBSD.plotPosteriorPDF(confInt=0.95)
             #myBSD.plotCornerPDF(fName = fDataName.split('.')[0] + '_Corner.pdf')
