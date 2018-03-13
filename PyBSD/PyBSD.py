@@ -1346,8 +1346,6 @@ class PyBSD(object):
         # Run Inference
         with pm.Model() as self.model:
 
-            self.var_alpha = theano.shared(value = 1.0, borrow = False)
-
             # Calculate the Geometric Factor from the normalize response matrix
             GeomFactResp1 = np.array([np.sum([self.response.GetBinContent(i+1,j+1) for j in range(0, self.response.GetNbinsY())]) for i in range(0, self.response.GetNbinsX())])
             GeomFactResp2 = np.array([np.sum([self.response2.GetBinContent(i+1,j+1) for j in range(0, self.response2.GetNbinsY())]) for i in range(0, self.response2.GetNbinsX())])
