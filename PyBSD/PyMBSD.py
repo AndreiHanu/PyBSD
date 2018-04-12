@@ -21,7 +21,6 @@ from matplotlib import rcParams
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1 import AxesGrid
 
-
 # Pandas
 import pandas
 
@@ -68,48 +67,48 @@ rcParams.update(params)
 class PyMBSD(object):
     
     def __init__(self,
-                MigBetaPIPS, MigGammaPIPS, MigBetaLaBr3, MigGammaLaBr3,
-                SourceBetaPIPS, SourceGammaPIPS, SourceBetaLaBr3,SourceGammaLaBr3):
+                MigBetaPlastic, MigGammaPlastic, MigBetaLaBr3, MigGammaLaBr3,
+                SourceBetaPlastic, SourceGammaPlastic, SourceBetaLaBr3,SourceGammaLaBr3):
         '''
         Object initialization function
         '''
 
         # Check the input instance type as follows:
-        if not isinstance(MigBetaPIPS, ROOT.TH2): raise TypeError("Beta migration matrix for PIPS detector must be of type ROOT.TH2")
-        if not isinstance(MigGammaPIPS, ROOT.TH2): raise TypeError("Gamma migration matrix for PIPS detector must be of type ROOT.TH2")
+        if not isinstance(MigBetaPlastic, ROOT.TH2): raise TypeError("Beta migration matrix for Plastic detector must be of type ROOT.TH2")
+        if not isinstance(MigGammaPlastic, ROOT.TH2): raise TypeError("Gamma migration matrix for Plastic detector must be of type ROOT.TH2")
         if not isinstance(MigBetaLaBr3, ROOT.TH2): raise TypeError("Beta migration matrix for LaBr3 detector must be of type ROOT.TH2")
         if not isinstance(MigGammaLaBr3, ROOT.TH2): raise TypeError("Gamma migration matrix for LaBr3 detector must be of type ROOT.TH2")
-        if not isinstance(SourceBetaPIPS, ROOT.TH1): raise TypeError("Beta source spectrum for the PIPS detector must be of type ROOT.TH1")
-        if not isinstance(SourceGammaPIPS, ROOT.TH1): raise TypeError("Gamma source spectrum for the PIPS detector must be of type ROOT.TH1")
+        if not isinstance(SourceBetaPlastic, ROOT.TH1): raise TypeError("Beta source spectrum for the Plastic detector must be of type ROOT.TH1")
+        if not isinstance(SourceGammaPlastic, ROOT.TH1): raise TypeError("Gamma source spectrum for the Plastic detector must be of type ROOT.TH1")
         if not isinstance(SourceBetaLaBr3, ROOT.TH1): raise TypeError("Beta source spectrum for the LaBr3 detector must be of type ROOT.TH1")
         if not isinstance(SourceGammaLaBr3, ROOT.TH1): raise TypeError("Gamma source spectrum for the LaBr3 detector must be of type ROOT.TH1")
 
         # Copy the inputs to the object
-        self.MigBetaPIPS = hist2array(MigBetaPIPS, include_overflow=False, copy=True, return_edges=True)
-        self.MigGammaPIPS = hist2array(MigGammaPIPS, include_overflow=False, copy=True, return_edges=True)
+        self.MigBetaPlastic = hist2array(MigBetaPlastic, include_overflow=False, copy=True, return_edges=True)
+        self.MigGammaPlastic = hist2array(MigGammaPlastic, include_overflow=False, copy=True, return_edges=True)
         self.MigBetaLaBr3 = hist2array(MigBetaLaBr3, include_overflow=False, copy=True, return_edges=True)
         self.MigGammaLaBr3 = hist2array(MigGammaLaBr3, include_overflow=False, copy=True, return_edges=True)
-        self.SourceBetaPIPS = hist2array(SourceBetaPIPS, include_overflow=False, copy=True, return_edges=True)
-        self.SourceGammaPIPS = hist2array(SourceGammaPIPS, include_overflow=False, copy=True, return_edges=True)
+        self.SourceBetaPlastic = hist2array(SourceBetaPlastic, include_overflow=False, copy=True, return_edges=True)
+        self.SourceGammaPlastic = hist2array(SourceGammaPlastic, include_overflow=False, copy=True, return_edges=True)
         self.SourceBetaLaBr3 = hist2array(SourceBetaLaBr3, include_overflow=False, copy=True, return_edges=True)
         self.SourceGammaLaBr3 = hist2array(SourceGammaLaBr3, include_overflow=False, copy=True, return_edges=True)
 
         # Calculate the response matrix (aka. conditional probability) using Eq. 5 from the Choudalakis paper
         # Response[i,j] = P(d = j|t = i) = P(t = i, d = j)/P(t = i)
         # Response[j|i] = M[d = j, t = i] / Truth[i]
-        self.ResponseBetaPIPS = copy.deepcopy(self.MigBetaPIPS)
-        for i in np.arange(self.ResponseBetaPIPS[1][0].size - 1):
-            for j in np.arange(self.ResponseBetaPIPS[1][1].size - 1):
+        self.ResponseBetaPlastic = copy.deepcopy(self.MigBetaPlastic)
+        for i in np.arange(self.ResponseBetaPlastic[1][0].size - 1):
+            for j in np.arange(self.ResponseBetaPlastic[1][1].size - 1):
                 with np.errstate(divide='ignore', invalid='ignore'):
                     # Normalize with Truth
-                    self.ResponseBetaPIPS[0][i,j]=(self.ResponseBetaPIPS[0][i,j]/self.SourceBetaPIPS[0][i] if np.nonzero(self.SourceBetaPIPS[0][i]) else 0.)
+                    self.ResponseBetaPlastic[0][i,j]=(self.ResponseBetaPlastic[0][i,j]/self.SourceBetaPlastic[0][i] if np.nonzero(self.SourceBetaPlastic[0][i]) else 0.)
         
-        self.ResponseGammaPIPS = copy.deepcopy(self.MigGammaPIPS)
-        for i in np.arange(self.ResponseGammaPIPS[1][0].size - 1):
-            for j in np.arange(self.ResponseGammaPIPS[1][1].size -1):
+        self.ResponseGammaPlastic = copy.deepcopy(self.MigGammaPlastic)
+        for i in np.arange(self.ResponseGammaPlastic[1][0].size - 1):
+            for j in np.arange(self.ResponseGammaPlastic[1][1].size - 1):
                 with np.errstate(divide='ignore', invalid='ignore'):
                     # Normalize with Truth
-                    self.ResponseGammaPIPS[0][i,j]=(self.ResponseGammaPIPS[0][i,j]/self.SourceGammaPIPS[0][i] if np.nonzero(self.SourceGammaPIPS[0][i]) else 0.)
+                    self.ResponseGammaPlastic[0][i,j]=(self.ResponseGammaPlastic[0][i,j]/self.SourceGammaPlastic[0][i] if np.nonzero(self.SourceGammaPlastic[0][i]) else 0.)
 
         self.ResponseBetaLaBr3 = copy.deepcopy(self.MigBetaLaBr3)
         for i in np.arange(self.ResponseBetaLaBr3[1][0].size - 1):
@@ -150,15 +149,15 @@ class PyMBSD(object):
         cmap.set_over(cmap(1.))
 
         # Response Limits
-        rLimLow = 1E-3
+        rLimLow = 1E-2
         rLimUp = 1E2
 
         # Plot the response matrices
-        X, Y = np.meshgrid(self.ResponseBetaPIPS[1][0], self.ResponseBetaPIPS[1][1])
-        H0 = axResp[0].pcolormesh(X, Y, self.ResponseBetaPIPS[0].T, norm = colors.LogNorm(), cmap = cmap, linewidth = 0, rasterized = True) 
+        X, Y = np.meshgrid(self.ResponseBetaPlastic[1][0], self.ResponseBetaPlastic[1][1])
+        H0 = axResp[0].pcolormesh(X, Y, self.ResponseBetaPlastic[0].T, norm = colors.LogNorm(), cmap = cmap, linewidth = 0, rasterized = True) 
 
-        X, Y = np.meshgrid(self.ResponseGammaPIPS[1][0], self.ResponseGammaPIPS[1][1])
-        H1 = axResp[1].pcolormesh(X, Y, self.ResponseGammaPIPS[0].T, norm = colors.LogNorm(), cmap = cmap, linewidth = 0, rasterized = True) 
+        X, Y = np.meshgrid(self.ResponseGammaPlastic[1][0], self.ResponseGammaPlastic[1][1])
+        H1 = axResp[1].pcolormesh(X, Y, self.ResponseGammaPlastic[0].T, norm = colors.LogNorm(), cmap = cmap, linewidth = 0, rasterized = True) 
 
         X, Y = np.meshgrid(self.ResponseBetaLaBr3[1][0], self.ResponseBetaLaBr3[1][1])
         H2 = axResp[2].pcolormesh(X, Y, self.ResponseBetaLaBr3[0].T, norm = colors.LogNorm(), cmap = cmap, linewidth = 0, rasterized = True) 
@@ -182,11 +181,11 @@ class PyMBSD(object):
         axResp[0].set_xscale('log')
         axResp[0].set_yscale('log')
         axResp[0].set_ylabel('Measured Energy (keV)')
-        axResp[0].text(0.03,0.95, 'Canberra PD450-15-500AM PIPS', transform=axResp[0].transAxes, verticalalignment='top', color = 'white')
+        axResp[0].text(0.03,0.95, 'Eljen M550-20x8-1 Plastic Detector', transform=axResp[0].transAxes, verticalalignment='top', color = 'white')
 
         axResp[1].set_xscale('log')
         axResp[1].set_yscale('log')
-        axResp[1].text(0.03,0.95, 'Canberra PD450-15-500AM PIPS', transform=axResp[1].transAxes, verticalalignment='top', color = 'white')
+        axResp[1].text(0.03,0.95, 'Eljen M550-20x8-1 Plastic Detector', transform=axResp[1].transAxes, verticalalignment='top', color = 'white')
 
         axResp[2].set_xscale('log')
         axResp[2].set_yscale('log')
@@ -231,20 +230,20 @@ class PyMBSD(object):
 
         # Load the dose coefficients into self object
         # NOTE: Energy scaling from MeV to keV
-        self.coeffGammaWB = np.array([logInterpCoeff(self.ResponseBetaPIPS[1][0], 
+        self.coeffGammaWB = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_ICRP116_Photon_WholeBody['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Photon_WholeBody['ISO (pSv cm2)'].values*coeffScalingFactor),
-                                      self.ResponseBetaPIPS[1][0]])
+                                      self.ResponseBetaPlastic[1][0]])
         
-        self.coeffGammaSkin = np.array([logInterpCoeff(self.ResponseBetaPIPS[1][0], 
+        self.coeffGammaSkin = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_ICRP116_Photon_MaleSkin['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Photon_MaleSkin['ISO (pGy cm2)'].values*coeffScalingFactor),
-                                      self.ResponseBetaPIPS[1][0]])
+                                      self.ResponseBetaPlastic[1][0]])
         
-        self.coeffGammaEye = np.array([logInterpCoeff(self.ResponseBetaPIPS[1][0], 
+        self.coeffGammaEye = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_ICRP116_Photon_EyeLens['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Photon_EyeLens['ISO (pGy cm2)'].values*coeffScalingFactor),
-                                      self.ResponseBetaPIPS[1][0]])
+                                      self.ResponseBetaPlastic[1][0]])
     
     def loadDoseCoeffBeta(self, fName=''):
         '''
@@ -265,15 +264,15 @@ class PyMBSD(object):
 
         # Load the dose coefficients into self object
         # NOTE: Energy scaling from MeV to keV
-        self.coeffBetaWB = np.array([logInterpCoeff(self.ResponseBetaPIPS[1][0], 
+        self.coeffBetaWB = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                     df_ICRP116_Beta_WholeBody['Energy (MeV)'].values*1E3, 
                                                     df_ICRP116_Beta_WholeBody['ISO (pSv cm2)'].values*coeffScalingFactor),
-                                      self.ResponseBetaPIPS[1][0]])
+                                      self.ResponseBetaPlastic[1][0]])
         
-        self.coeffBetaEye = np.array([logInterpCoeff(self.ResponseBetaPIPS[1][0], 
+        self.coeffBetaEye = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_ICRP116_Beta_EyeLens['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Beta_EyeLens['ISO (pGy cm2)'].values*coeffScalingFactor),
-                                      self.ResponseBetaPIPS[1][0]])
+                                      self.ResponseBetaPlastic[1][0]])
 
     def plotUnfoldedFluenceSpectrum(self, fName='UnfoldedFluenceSpectrum.pdf'):
         '''
@@ -296,8 +295,8 @@ class PyMBSD(object):
         figFluence, axFluence = plt.subplots(2,2, figsize=(fig_size[0]*2,fig_size[1]*1.5))
         
         # Plot the data spectrum
-        axFluence[0][0].plot(sorted(np.concatenate((self.DataPIPS[1][0][:-1],self.DataPIPS[1][0][1:]))), 
-                    np.repeat(self.DataPIPS[0], 2),
+        axFluence[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+                    np.repeat(self.DataPlastic[0], 2),
                     lw=1.25, 
                     color='black', 
                     linestyle="-",
@@ -310,11 +309,15 @@ class PyMBSD(object):
                     linestyle="-",
                     drawstyle='steps')
 
-        axFluence[0][0].set_title('Measured Spectrum from Canberra PD450-15-500AM PIPS')
+        minY = 1.
+        maxY = np.maximum(np.power(10, np.ceil(np.log10(np.max(self.DataPlastic[0])))),
+                          np.power(10, np.ceil(np.log10(np.max(self.DataLaBr3[0])))))
+
+        axFluence[0][0].set_title('Measured Spectrum from Eljen M550-20x8-1 Plastic Detector')
         axFluence[0][0].set_xlabel('Measured Energy (keV)')
         axFluence[0][0].set_ylabel('Counts')
-        axFluence[0][0].set_xlim(min(self.DataPIPS[1][0]),max(self.DataPIPS[1][0]))
-        axFluence[0][0].set_ylim(1., np.power(10, np.ceil(np.log10(np.max(self.DataPIPS[0])))))
+        axFluence[0][0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axFluence[0][0].set_ylim(minY, maxY)
         axFluence[0][0].set_xscale('log')
         axFluence[0][0].set_yscale('log')
 
@@ -322,7 +325,7 @@ class PyMBSD(object):
         axFluence[0][1].set_xlabel('Measured Energy (keV)')
         axFluence[0][1].set_ylabel('Counts')
         axFluence[0][1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
-        axFluence[0][1].set_ylim(1., np.power(10, np.ceil(np.log10(np.max(self.DataLaBr3[0])))))
+        axFluence[0][1].set_ylim(minY, maxY)
         axFluence[0][1].set_xscale('log')
         axFluence[0][1].set_yscale('log')
 
@@ -342,7 +345,7 @@ class PyMBSD(object):
                                         drawstyle='steps')
 
         # Plot the unfolded spectrum
-        pBCIBeta = axFluence[1][0].fill_between(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pBCIBeta = axFluence[1][0].fill_between(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                             np.repeat(binRecoVal[0], 2), 
                                             np.repeat(binRecoVal[4], 2),
                                             color='red',
@@ -354,7 +357,7 @@ class PyMBSD(object):
                                             color='red',
                                             alpha=0.4)
 
-        pMeanBeta, = axFluence[1][0].plot(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pMeanBeta, = axFluence[1][0].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                         np.repeat(binRecoVal[2], 2),
                                         lw=1.25, 
                                         color='red', 
@@ -377,7 +380,7 @@ class PyMBSD(object):
         axFluence[1][0].set_ylabel('Fluence (cm$^{-2}$)')
         axFluence[1][0].set_xscale('log')
         axFluence[1][0].set_yscale('log')
-        axFluence[1][0].set_xlim(min(self.ResponseBetaPIPS[1][0]),max(self.ResponseBetaPIPS[1][0]))
+        axFluence[1][0].set_xlim(min(self.ResponseBetaPlastic[1][0]),max(self.ResponseBetaPlastic[1][0]))
         axFluence[1][0].set_ylim(np.power(10, np.floor(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
         axFluence[1][0].legend([pTruthBeta, (pBCIBeta, pMeanBeta)], ['Truth','Reconstructed (95% BCI)'], loc='best')
 
@@ -441,17 +444,52 @@ class PyMBSD(object):
                                    unfoldedBCIGamma[:,1]*self.coeffGammaEye[0]])            # Gamma Eye Dose 97.5% HPD
 
         # Create a figure to plot the spectrum
-        figDose, axDose = plt.subplots(2,2, figsize=(fig_size[0]*2,fig_size[1]*1.5))
+        figDose, axDose = plt.subplots(3,2, figsize=(fig_size[0]*2,fig_size[1]*2))
+
+        # Plot the data spectrum
+        axDose[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+                    np.repeat(self.DataPlastic[0], 2),
+                    lw=1.25, 
+                    color='black', 
+                    linestyle="-",
+                    drawstyle='steps')
+        
+        axDose[0][1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),  
+                    np.repeat(self.DataLaBr3[0], 2),
+                    lw=1.25, 
+                    color='black', 
+                    linestyle="-",
+                    drawstyle='steps')
+
+        minY = 1.
+        maxY = np.maximum(np.power(10, np.ceil(np.log10(np.max(self.DataPlastic[0])))),
+                          np.power(10, np.ceil(np.log10(np.max(self.DataLaBr3[0])))))
+
+        axDose[0][0].set_title('Measured Spectrum from Eljen M550-20x8-1 Plastic Detector')
+        axDose[0][0].set_xlabel('Measured Energy (keV)')
+        axDose[0][0].set_ylabel('Counts')
+        axDose[0][0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axDose[0][0].set_ylim(minY, maxY)
+        axDose[0][0].set_xscale('log')
+        axDose[0][0].set_yscale('log')
+
+        axDose[0][1].set_title('Measured Spectrum from Saint Gobain B380 LaBr3')
+        axDose[0][1].set_xlabel('Measured Energy (keV)')
+        axDose[0][1].set_ylabel('Counts')
+        axDose[0][1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axDose[0][1].set_ylim(minY, maxY)
+        axDose[0][1].set_xscale('log')
+        axDose[0][1].set_yscale('log')
 
          # Plot the true fluence spectrum, if available.
-        pTruthBeta, = axDose[0][0].plot(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pTruthBeta, = axDose[1][0].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                         np.repeat(self.TruthBeta[0], 2),
                                         lw=1.25, 
                                         color='black', 
                                         linestyle="-", 
                                         drawstyle='steps')
 
-        pTruthGamma, = axDose[0][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
+        pTruthGamma, = axDose[1][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
                                         np.repeat(self.TruthGamma[0], 2),
                                         lw=1.25, 
                                         color='black', 
@@ -459,19 +497,19 @@ class PyMBSD(object):
                                         drawstyle='steps')
 
         # Plot the unfolded spectrum
-        pBCIBeta = axDose[0][0].fill_between(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pBCIBeta = axDose[1][0].fill_between(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                             np.repeat(binRecoFluenceVal[0], 2), 
                                             np.repeat(binRecoFluenceVal[4], 2),
                                             color='red',
                                             alpha=0.4)
     
-        pBCIGamma = axDose[0][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
+        pBCIGamma = axDose[1][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
                                             np.repeat(binRecoFluenceVal[1], 2), 
                                             np.repeat(binRecoFluenceVal[5], 2),
                                             color='red',
                                             alpha=0.4)
 
-        pMeanBeta, = axDose[0][0].plot(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pMeanBeta, = axDose[1][0].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                         np.repeat(binRecoFluenceVal[2], 2),
                                         lw=1.25, 
                                         color='red', 
@@ -479,7 +517,7 @@ class PyMBSD(object):
                                         drawstyle='steps')
        
 
-        pMeanGamma, = axDose[0][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
+        pMeanGamma, = axDose[1][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
                                         np.repeat(binRecoFluenceVal[3], 2),
                                         lw=1.25, 
                                         color='red', 
@@ -489,90 +527,90 @@ class PyMBSD(object):
         minY = np.min(binRecoFluenceVal[binRecoFluenceVal >= 1E-2])
         maxY = np.max(binRecoFluenceVal[np.isfinite(binRecoFluenceVal)])
 
-        axDose[0][0].set_title('Reconstructed Beta-ray Fluence Spectrum')
-        axDose[0][0].set_xlabel('True Energy (keV)')
-        axDose[0][0].set_ylabel('Fluence (cm$^{-2}$)')
-        axDose[0][0].set_xscale('log')
-        axDose[0][0].set_yscale('log')
-        axDose[0][0].set_xlim(min(self.ResponseBetaPIPS[1][0]),max(self.ResponseBetaPIPS[1][0]))
-        axDose[0][0].set_ylim(np.power(10, np.floor(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
+        axDose[1][0].set_title('Reconstructed Beta-ray Fluence Spectrum')
+        axDose[1][0].set_xlabel('True Energy (keV)')
+        axDose[1][0].set_ylabel('Fluence (cm$^{-2}$)')
+        axDose[1][0].set_xscale('log')
+        axDose[1][0].set_yscale('log')
+        axDose[1][0].set_xlim(min(self.ResponseBetaPlastic[1][0]),max(self.ResponseBetaPlastic[1][0]))
+        axDose[1][0].set_ylim(np.power(10, np.floor(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
         if plotTruth:
-            axDose[0][0].legend([pTruthBeta, (pBCIBeta, pMeanBeta)], ['Truth','Reconstructed (95% BCI)'], loc='best')
+            axDose[1][0].legend([pTruthBeta, (pBCIBeta, pMeanBeta)], ['Truth','Reconstructed (95% BCI)'], loc='best')
         else:
-            axDose[0][0].legend([(pBCIBeta, pMeanBeta)], ['Reconstructed (95% BCI)'], loc='best')
+            axDose[1][0].legend([(pBCIBeta, pMeanBeta)], ['Reconstructed (95% BCI)'], loc='best')
 
-        axDose[0][1].set_title('Reconstructed Gamma-ray Fluence Spectrum')
-        axDose[0][1].set_xlabel('True Energy (keV)')
-        axDose[0][1].set_ylabel('Fluence (cm$^{-2}$)')
-        axDose[0][1].set_xscale('log')
-        axDose[0][1].set_yscale('log')
-        axDose[0][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
-        axDose[0][1].set_ylim(np.power(10, np.floor(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
+        axDose[1][1].set_title('Reconstructed Gamma-ray Fluence Spectrum')
+        axDose[1][1].set_xlabel('True Energy (keV)')
+        axDose[1][1].set_ylabel('Fluence (cm$^{-2}$)')
+        axDose[1][1].set_xscale('log')
+        axDose[1][1].set_yscale('log')
+        axDose[1][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
+        axDose[1][1].set_ylim(np.power(10, np.floor(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
         if plotTruth:
-            axDose[0][1].legend([pTruthGamma, (pBCIGamma, pMeanGamma)], ['Truth','Reconstructed (95% BCI)'], loc='best')
+            axDose[1][1].legend([pTruthGamma, (pBCIGamma, pMeanGamma)], ['Truth','Reconstructed (95% BCI)'], loc='best')
         else:
-            axDose[0][1].legend([(pBCIGamma, pMeanGamma)], ['Reconstructed (95% BCI)'], loc='best')
+            axDose[1][1].legend([(pBCIGamma, pMeanGamma)], ['Reconstructed (95% BCI)'], loc='best')
 
         # Plot the unfolded dose spectrum
-        pBCIBetaDoseWB = axDose[1][0].fill_between(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pBCIBetaDoseWB = axDose[2][0].fill_between(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                             np.repeat(binRecoDoseVal[0], 2), 
                                             np.repeat(binRecoDoseVal[10], 2),
                                             color='blue',
                                             alpha=0.5)
         
-        pBCIBetaDoseEye = axDose[1][0].fill_between(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pBCIBetaDoseEye = axDose[2][0].fill_between(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                             np.repeat(binRecoDoseVal[1], 2), 
                                             np.repeat(binRecoDoseVal[11], 2),
                                             color='orange',
                                             alpha=0.3)
     
-        pBCIGammaDoseWB = axDose[1][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
+        pBCIGammaDoseWB = axDose[2][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
                                             np.repeat(binRecoDoseVal[2], 2), 
                                             np.repeat(binRecoDoseVal[12], 2),
                                             color='blue',
                                             alpha=0.5)
 
-        pBCIGammaDoseSkin = axDose[1][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
+        pBCIGammaDoseSkin = axDose[2][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
                                             np.repeat(binRecoDoseVal[3], 2), 
                                             np.repeat(binRecoDoseVal[13], 2),
                                             color='green',
                                             alpha=0.4)
         
-        pBCIGammaDoseEye = axDose[1][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
+        pBCIGammaDoseEye = axDose[2][1].fill_between(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][1:],self.ResponseGammaLaBr3[1][0][:-1]))), 
                                             np.repeat(binRecoDoseVal[4], 2), 
                                             np.repeat(binRecoDoseVal[14], 2),
                                             color='orange',
                                             alpha=0.3)
 
-        pMeanBetaDoseWB, = axDose[1][0].plot(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pMeanBetaDoseWB, = axDose[2][0].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                         np.repeat(binRecoDoseVal[5], 2),
                                         lw=1.25, 
                                         color='blue', 
                                         linestyle="-", 
                                         drawstyle='steps')
         
-        pMeanBetaDoseEye, = axDose[1][0].plot(sorted(np.concatenate((self.ResponseBetaPIPS[1][0][1:],self.ResponseBetaPIPS[1][0][:-1]))), 
+        pMeanBetaDoseEye, = axDose[2][0].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][1:],self.ResponseBetaPlastic[1][0][:-1]))), 
                                         np.repeat(binRecoDoseVal[6], 2),
                                         lw=1.25, 
                                         color='orange', 
                                         linestyle="-", 
                                         drawstyle='steps')
 
-        pMeanGammaDoseWB, = axDose[1][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
+        pMeanGammaDoseWB, = axDose[2][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
                                         np.repeat(binRecoDoseVal[7], 2),
                                         lw=1.25, 
                                         color='blue', 
                                         linestyle="-", 
                                         drawstyle='steps')
         
-        pMeanGammaDoseSkin, = axDose[1][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
+        pMeanGammaDoseSkin, = axDose[2][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
                                         np.repeat(binRecoDoseVal[8], 2),
                                         lw=1.25, 
                                         color='green', 
                                         linestyle="-", 
                                         drawstyle='steps')
         
-        pMeanGammaDoseEye, = axDose[1][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
+        pMeanGammaDoseEye, = axDose[2][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
                                         np.repeat(binRecoDoseVal[9], 2),
                                         lw=1.25, 
                                         color='orange', 
@@ -580,7 +618,7 @@ class PyMBSD(object):
                                         drawstyle='steps')
 
         # Plot Statistics
-        tblStats1 = axDose[1][0].table( cellText = (
+        tblStats1 = axDose[2][0].table( cellText = (
                                         ('Eye',
                                         '{:0.0f} nGy'.format(np.sum(binTruthDoseVal[1])),
                                         '{:0.0f} ({:0.0f}-{:0.0f}) nGy'.format(np.sum(binRecoDoseVal[6]), np.sum(binRecoDoseVal[1]), np.sum(binRecoDoseVal[11]))),
@@ -597,7 +635,7 @@ class PyMBSD(object):
         for key, cell in tblStats1.get_celld().items():
             cell.set_linewidth(0)
         
-        tblStats2 = axDose[1][1].table( cellText = (
+        tblStats2 = axDose[2][1].table( cellText = (
                                         ('Skin',
                                         '{:0.0f} nGy'.format(np.sum(binTruthDoseVal[3])),
                                         '{:0.0f} ({:0.0f}-{:0.0f}) nGy'.format(np.sum(binRecoDoseVal[8]), np.sum(binRecoDoseVal[3]), np.sum(binRecoDoseVal[13]))),
@@ -617,31 +655,30 @@ class PyMBSD(object):
         for key, cell in tblStats2.get_celld().items():
             cell.set_linewidth(0)
         
-
         # Figure Properties
         dnrFluence = maxY/minY      # Limit the dynamic range of the dose spectrum to the same as the fluence spectrum
         maxY = np.max(binRecoDoseVal[np.isfinite(binRecoDoseVal)])
         minY = np.min(binRecoDoseVal[binRecoDoseVal >= maxY/dnrFluence])
 
-        axDose[1][0].set_title('A2 - Reconstructed Beta-ray Dose Spectrum')
-        axDose[1][0].set_xlabel('True Energy (keV)')
-        axDose[1][0].set_ylabel('Dose (nSv or nGy)')
-        axDose[1][0].set_xscale('log')
-        axDose[1][0].set_yscale('log')
-        axDose[1][0].set_xlim(min(self.ResponseBetaLaBr3[1][0]),max(self.ResponseBetaLaBr3[1][0]))
-        axDose[1][0].set_ylim(np.power(10, np.ceil(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
-        axDose[1][0].legend([(pBCIBetaDoseEye, pMeanBetaDoseEye), (pBCIBetaDoseWB, pMeanBetaDoseWB)],
+        axDose[2][0].set_title('A2 - Reconstructed Beta-ray Dose Spectrum')
+        axDose[2][0].set_xlabel('True Energy (keV)')
+        axDose[2][0].set_ylabel('Dose (nSv or nGy)')
+        axDose[2][0].set_xscale('log')
+        axDose[2][0].set_yscale('log')
+        axDose[2][0].set_xlim(min(self.ResponseBetaLaBr3[1][0]),max(self.ResponseBetaLaBr3[1][0]))
+        axDose[2][0].set_ylim(np.power(10, np.ceil(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
+        axDose[2][0].legend([(pBCIBetaDoseEye, pMeanBetaDoseEye), (pBCIBetaDoseWB, pMeanBetaDoseWB)],
                                 ['Lens of Eye (95% BCI)', 'Whole Body (95% BCI)'],
                                 bbox_to_anchor=(0., 1.02, 1., .102), ncol=2, loc=3, mode="expand", borderaxespad=0.)
 
-        axDose[1][1].set_title('B2 - Reconstructed Gamma-ray Dose Spectrum')
-        axDose[1][1].set_xlabel('True Energy (keV)')
-        axDose[1][1].set_ylabel('Dose (nSv or nGy)')
-        axDose[1][1].set_xscale('log')
-        axDose[1][1].set_yscale('log')
-        axDose[1][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
-        axDose[1][1].set_ylim(np.power(10, np.ceil(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
-        axDose[1][1].legend([(pBCIGammaDoseSkin, pMeanGammaDoseSkin),(pBCIGammaDoseEye, pMeanGammaDoseEye),(pBCIGammaDoseWB, pMeanGammaDoseWB)],
+        axDose[2][1].set_title('B2 - Reconstructed Gamma-ray Dose Spectrum')
+        axDose[2][1].set_xlabel('True Energy (keV)')
+        axDose[2][1].set_ylabel('Dose (nSv or nGy)')
+        axDose[2][1].set_xscale('log')
+        axDose[2][1].set_yscale('log')
+        axDose[2][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
+        axDose[2][1].set_ylim(np.power(10, np.ceil(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
+        axDose[2][1].legend([(pBCIGammaDoseSkin, pMeanGammaDoseSkin),(pBCIGammaDoseEye, pMeanGammaDoseEye),(pBCIGammaDoseWB, pMeanGammaDoseWB)],
                                 ['Skin (95% BCI)','Lens of Eye (95% BCI)', 'Whole Body (95% BCI)'],
                                 bbox_to_anchor=(0., 1.02, 1., .102), ncol=3, loc=3, mode="expand", borderaxespad=0.)
         
@@ -661,18 +698,18 @@ class PyMBSD(object):
         '''
         return np.asarray(x,dtype=theano.config.floatX)
 
-    def buildModel(self, DataPIPS, DataLaBr3, TruthBeta, TruthGamma):
+    def buildModel(self, DataPlastic, DataLaBr3, TruthBeta, TruthGamma):
         '''
         Build a multidimensional inference model
         '''
         # Check the input instance type as follows: 
-        if not isinstance(DataPIPS, ROOT.TH1): raise TypeError("Data histogram from the PIPS detector must be of type ROOT.TH1")
+        if not isinstance(DataPlastic, ROOT.TH1): raise TypeError("Data histogram from the Plastic detector must be of type ROOT.TH1")
         if not isinstance(DataLaBr3, ROOT.TH1): raise TypeError("Data histogram from the LaBr3 detector must be of type ROOT.TH1")
         if not isinstance(TruthBeta, ROOT.TH1): raise TypeError("Truth histogram for the Beta spectrum must be of type ROOT.TH1")
         if not isinstance(TruthGamma, ROOT.TH1): raise TypeError("Truth histogram for the Gamma spectrum must be of type ROOT.TH1")
 
         # Copy the inputs to the object
-        self.DataPIPS = hist2array(DataPIPS, include_overflow=False, copy=True, return_edges=True)
+        self.DataPlastic = hist2array(DataPlastic, include_overflow=False, copy=True, return_edges=True)
         self.DataLaBr3 = hist2array(DataLaBr3, include_overflow=False, copy=True, return_edges=True)
         self.TruthBeta = hist2array(TruthBeta, include_overflow=False, copy=True, return_edges=True)
         self.TruthGamma = hist2array(TruthGamma, include_overflow=False, copy=True, return_edges=True)
@@ -681,54 +718,79 @@ class PyMBSD(object):
         with pm.Model() as self.model:
 
             # Define the upper and lower bounds for the priors
-            GFBetaPIPS = np.sum(self.ResponseBetaPIPS[0], axis=1)
-            GFGammaPIPS = np.sum(self.ResponseGammaPIPS[0], axis=1)
+            GFBetaPlastic = np.sum(self.ResponseBetaPlastic[0], axis=1)
+            GFGammaPlastic = np.sum(self.ResponseGammaPlastic[0], axis=1)
             GFBetaLaBr3 = np.sum(self.ResponseBetaLaBr3[0], axis=1)
             GFGammaLaBr3 = np.sum(self.ResponseGammaLaBr3[0], axis=1)
 
-            SFBeta = GFBetaPIPS/np.power(GFBetaPIPS + GFGammaPIPS, 2)
+            SFBeta = GFBetaPlastic/np.power(GFBetaPlastic + GFGammaPlastic, 2)
             SFBeta[np.isclose(SFBeta, 0)] = np.finfo(np.float64).eps
             SFGamma = GFGammaLaBr3/np.power(GFBetaLaBr3 + GFGammaLaBr3, 2)
             SFGamma[np.isclose(SFGamma, 0)] = np.finfo(np.float64).eps
 
-            nCountsPIPS = np.sum(self.DataPIPS[0])
-            nCountsLaBr3 = np.sum(self.DataLaBr3[0])
+            nCountsPlastic = self.DataPlastic[0]
+            nCountsLaBr3 = self.DataLaBr3[0]
 
-            lbPhiBeta = np.zeros(self.ResponseBetaPIPS[1][0].size-1)
-            ubPhiBeta = np.ones(self.ResponseBetaPIPS[1][0].size-1)*nCountsPIPS*SFBeta
+            lbPhiBeta = np.zeros(self.ResponseBetaPlastic[1][0].size-1)
+            ubPhiBeta = 100*np.ones(self.ResponseBetaPlastic[1][0].size-1)*np.max(nCountsPlastic)*SFBeta
             lbPhiGamma = np.zeros(self.ResponseGammaLaBr3[1][0].size-1)
-            ubPhiGamma = np.ones(self.ResponseGammaLaBr3[1][0].size-1)*nCountsLaBr3*SFGamma
+            ubPhiGamma = 100*np.ones(self.ResponseGammaLaBr3[1][0].size-1)*np.max(nCountsLaBr3)*SFGamma
 
             ubPhiBeta[np.isclose(ubPhiBeta, 0)] = 1E-15
             ubPhiGamma[np.isclose(ubPhiGamma, 0)] = 1E-15
-
-            # Define the prior probability densities 
-            self.PhiBeta = pm.Uniform('PhiBeta', 
-                                lower = lbPhiBeta,
-                                upper = ubPhiBeta, 
-                                shape = (self.ResponseBetaPIPS[1][0].size-1))
             
-            self.PhiGamma = pm.Uniform('PhiGamma', 
-                                lower = lbPhiGamma,
-                                upper = ubPhiGamma, 
-                                shape = (self.ResponseGammaPIPS[1][0].size-1))
+            # Define the alpha
+            self.var_alpha = theano.shared(value = 1.0, borrow = False)
+
+            # Define the prior
+            self.prior = 'Uniform'
+
+            # Define the prior probability densities
+            if self.prior == 'Uniform':
+                self.PhiBeta = pm.Uniform('PhiBeta', lower = lbPhiBeta, upper = ubPhiBeta, shape = (self.ResponseBetaPlastic[1][0].size-1))
+                self.PhiGamma = pm.Uniform('PhiGamma', lower = lbPhiGamma, upper = ubPhiGamma, shape = (self.ResponseGammaPlastic[1][0].size-1))
+            elif self.prior == 'Gaussian':
+                self.PhiBeta = pm.DensityDist('PhiBeta', logp = lambda val: -self.var_alpha*0.5*theano.tensor.sqr((val - ubPhiBeta)/ubPhiBeta).sum(), shape = (self.ResponseBetaPlastic[1][0].size-1))            
+                self.PhiGamma = pm.DensityDist('PhiGamma', logp = lambda val: -self.var_alpha*0.5*theano.tensor.sqr((val - ubPhiGamma)/ubPhiGamma).sum(), shape = (self.ResponseGammaPlastic[1][0].size-1))
 
             # Define the models
-            self.MPIPS = theano.tensor.dot(theano.shared(self.asMat(self.ResponseBetaPIPS[0].T)), self.PhiBeta) + theano.tensor.dot(theano.shared(self.asMat(self.ResponseGammaPIPS[0].T)), self.PhiGamma)
+            self.MPlastic = theano.tensor.dot(theano.shared(self.asMat(self.ResponseBetaPlastic[0].T)), self.PhiBeta) + theano.tensor.dot(theano.shared(self.asMat(self.ResponseGammaPlastic[0].T)), self.PhiGamma)
             self.MLaBr3 = theano.tensor.dot(theano.shared(self.asMat(self.ResponseBetaLaBr3[0].T)), self.PhiBeta) + theano.tensor.dot(theano.shared(self.asMat(self.ResponseGammaLaBr3[0].T)), self.PhiGamma)
             
             # Define the likelihood
-            self.LPIPS = pm.Poisson('Likelihood_PIPS', 
-                                    mu = self.MPIPS,
-                                    observed = theano.shared(self.DataPIPS[0], borrow = False), 
-                                    shape = (self.DataPIPS[0].size, 1))
+            self.LPlastic = pm.Poisson('Likelihood_Plastic', 
+                                    mu = self.MPlastic,
+                                    observed = theano.shared(self.DataPlastic[0], borrow = False), 
+                                    shape = (self.DataPlastic[0].size, 1))
 
             self.LLaBr3 = pm.Poisson('Likelihood_LaBr3', 
                                     mu = self.MLaBr3,
                                     observed = theano.shared(self.DataLaBr3[0], borrow = False), 
                                     shape = (self.DataLaBr3[0].size, 1))
 
-    def sampleADVI(self, iterations = 1000000, samples = 100000):
+    def sampleMH(self, N = 10000, B = 10000):
+        '''
+        Function to sample the posterior distribution using a Markov Chain Monte Carlo (MCMC) and the
+        Metropolis Hastings algorithm in PyMC3.
+        ''' 
+        self.Samples = N
+        self.Burn = B
+        with self.model:
+            # Select the Posterior sampling algorithm
+            print 'Sampling the posterior using Metropolis ...'
+            step = pm.Metropolis()
+            start = pm.find_MAP(model = self.model)
+            
+            self.trace = pm.sample(self.Samples,
+                                   tune = self.Burn,
+                                   start = start,
+                                   step=step)
+            
+
+            # Print a summary of the MCMC trace      
+            pm.summary(self.trace)
+    
+    def sampleADVI(self, iterations = 1000000, samples = 500000):
         '''
         Function to sample the posterior distribution using the ADVI variational inference algorithm.
         The outputs from this algorithm can be used to update the prior estimate before a more general
@@ -755,7 +817,7 @@ class PyMBSD(object):
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
 
-    def sampleNUTS(self, N = 50000, B = 20000):
+    def sampleNUTS(self, N = 100000, B = 20000):
         '''
         Function to sample the posterior distribution using a Markov Chain Monte Carlo (MCMC) and the
         No-U-Turn Sampling (NUTS) algorithm in PyMC3.
@@ -786,6 +848,29 @@ class PyMBSD(object):
 
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
+    
+    def sampleHMC(self, N = 10000, B = 10000):
+        '''
+        Function to sample the posterior distribution using a Markov Chain Monte Carlo (MCMC) and the
+        Hamiltonian Monte Carlo (HMC) sampling algorithm in PyMC3.
+        ''' 
+        self.Samples = N
+        self.Burn = B
+        with self.model:
+            mu, sds, elbo = pm.variational.advi(n=2000000)
+
+            # Select the Posterior sampling algorithm
+            print 'Sampling the posterior using HMC ...'
+            step = pm.HamiltonianMC(scaling=np.power(self.model.dict_to_array(sds), 2), is_cov=True)
+
+            # Sample
+            self.trace = pm.sample(self.Samples,
+                                   tune = self.Burn,
+                                   start = mu,
+                                   step=step)
+            
+            # Print a summary of the MCMC trace      
+            pm.summary(self.trace)
 
 # ROOT file context manager
 class ROOTFile(object):
@@ -801,27 +886,27 @@ class ROOTFile(object):
         self.file.Close()
 
 # Settings
-ResponseFilePIPS = './../TestData/Canberra PD450-15-500AM/Response Matrix/Canberra PD450-15-500AM PIPS.root'
+ResponseFilePlastic = './../TestData/Eljen Plastic Detector/Response Matrix/Eljen Plastic Detector.root'
 ResponseFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Response Matrix/Saint Gobain B380 LaBr3.root'
 
-DataFilePIPS = './../TestData/Canberra PD450-15-500AM/Cs137/Cs137_R_35_cm_Nr_200000000_ISO.root'
-DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Cs137/Cs137_R_35_cm_Nr_200000000_ISO.root'
+DataFilePlastic = './../TestData/Eljen Plastic Detector/Cs137/Cs137_R_50_cm_Nr_200000000_ISO.root'
+DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Cs137/Cs137_R_50_cm_Nr_200000000_ISO.root'
 
 DoseCoeffFolder = './../../Dose Coefficients/'
 fDoseCoeffGamma  = 'ICRP116_Photon_DoseConversionCoefficients.xlsx'
 fDoseCoeffBeta  = 'ICRP116_Electron_DoseConversionCoefficients.xlsx'
 
-with ROOTFile(ResponseFilePIPS) as fResponsePIPS:
+with ROOTFile(ResponseFilePlastic) as fResponsePlastic:
     with ROOTFile(ResponseFileLaBr3) as fResponseLaBr3:
-        with ROOTFile(DataFilePIPS) as fDataPIPS:
+        with ROOTFile(DataFilePlastic) as fDataPlastic:
             with ROOTFile(DataFileLaBr3) as fDataLaBr3:
                 # Initiate the class
-                myMBSD = PyMBSD(MigBetaPIPS = fResponsePIPS.Get('Energy Migration Matrix (Electron)'),
-                                MigGammaPIPS = fResponsePIPS.Get('Energy Migration Matrix (Gamma)'), 
+                myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (Electron)'),
+                                MigGammaPlastic = fResponsePlastic.Get('Energy Migration Matrix (Gamma)'), 
                                 MigBetaLaBr3 = fResponseLaBr3.Get('Energy Migration Matrix (Electron)'),
                                 MigGammaLaBr3 = fResponseLaBr3.Get('Energy Migration Matrix (Gamma)'),
-                                SourceBetaPIPS = fResponsePIPS.Get('Source Spectrum (Electron)'),
-                                SourceGammaPIPS = fResponsePIPS.Get('Source Spectrum (Gamma)'),
+                                SourceBetaPlastic = fResponsePlastic.Get('Source Spectrum (Electron)'),
+                                SourceGammaPlastic = fResponsePlastic.Get('Source Spectrum (Gamma)'),
                                 SourceBetaLaBr3 = fResponseLaBr3.Get('Source Spectrum (Electron)'),
                                 SourceGammaLaBr3 = fResponseLaBr3.Get('Source Spectrum (Gamma)'))
 
@@ -833,18 +918,24 @@ with ROOTFile(ResponseFilePIPS) as fResponsePIPS:
                 myMBSD.loadDoseCoeffBeta(fName = DoseCoeffFolder + fDoseCoeffBeta)
 
                 # Build the model
-                myMBSD.buildModel(DataPIPS = fDataPIPS.Get('Detector Measured Spectrum'),
+                myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'),
                                   DataLaBr3 = fDataLaBr3.Get('Detector Measured Spectrum'),
-                                  TruthBeta = fDataPIPS.Get('Source Spectrum (Electron)'),
-                                  TruthGamma = fDataPIPS.Get('Source Spectrum (Gamma)'))
+                                  TruthBeta = fDataPlastic.Get('Source Spectrum (Electron)'),
+                                  TruthGamma = fDataPlastic.Get('Source Spectrum (Gamma)'))
 
                 # Run Variational Inference
                 myMBSD.sampleADVI()
-                
-                myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePIPS.split('.')[-2].split('/')[-1] + '_Fluence_ADVI.pdf')
-                myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePIPS.split('.')[-2].split('/')[-1] + '_Dose_ADVI.pdf', plotTruth = True)
+                myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_ADVI.pdf')
+                myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_ADVI.pdf', plotTruth = True)
 
                 # Run MCMC Inference
-                #myMBSD.sampleNUTS(20000,20000)
-                #myMBSD.plotUnfoldedFluenceSpectrum(fName = 'Unfolded_Fluence_NUTS.pdf')
+                #myMBSD.sampleMH(N=100000,B=100000)
+                #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_MH.pdf')
+                #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_MH.pdf', plotTruth = True)
+                #myMBSD.sampleNUTS(100000,20000)
+                #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_NUTS.pdf')
+                #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_NUTS.pdf', plotTruth = True)
+                #myMBSD.sampleHMC()
+                #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_HMC.pdf')
+                #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_HMC.pdf', plotTruth = True)
 
