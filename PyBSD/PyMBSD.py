@@ -2,6 +2,11 @@ import numpy as np
 import pymc3 as pm
 import ROOT 
 
+# PyMC3 SMC Module
+from pymc3.step_methods import smc
+from tempfile import mkdtemp
+import shutil
+
 # ROOT-Numpy
 from root_numpy import root2array, hist2array, matrix
 
@@ -215,10 +220,10 @@ class PyMBSD(object):
         '''
 
         # Import coefficients from files
-        df_ICRP116_Photon_WholeBody = pandas.read_excel(fName, sheetname = 'Effective Dose (Whole Body)')
-        df_ICRP116_Photon_FemaleSkin = pandas.read_excel(fName, sheetname = 'Absorbed Dose (Female Skin)')
-        df_ICRP116_Photon_MaleSkin = pandas.read_excel(fName, sheetname = 'Absorbed Dose (Male Skin)')
-        df_ICRP116_Photon_EyeLens = pandas.read_excel(fName, sheetname = 'Absorbed Dose (Lens of Eye)')
+        df_ICRP116_Photon_WholeBody = pandas.read_excel(fName, sheet_name = 'Effective Dose (Whole Body)')
+        df_ICRP116_Photon_FemaleSkin = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Female Skin)')
+        df_ICRP116_Photon_MaleSkin = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Male Skin)')
+        df_ICRP116_Photon_EyeLens = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Lens of Eye)')
 
         # Interpolate the coefficients into the true log energy bins
         def logInterpCoeff(coeffBins, coeffX, coeffY):
@@ -251,8 +256,8 @@ class PyMBSD(object):
         '''
 
         # Import coefficients from files
-        df_ICRP116_Beta_WholeBody = pandas.read_excel(fName, sheetname = 'Effective Dose (Whole Body)')
-        df_ICRP116_Beta_EyeLens = pandas.read_excel(fName, sheetname = 'Absorbed Dose (Lens of Eye)')
+        df_ICRP116_Beta_WholeBody = pandas.read_excel(fName, sheet_name = 'Effective Dose (Whole Body)')
+        df_ICRP116_Beta_EyeLens = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Lens of Eye)')
 
         # Interpolate the coefficients into the true log energy bins
         def logInterpCoeff(coeffBins, coeffX, coeffY):
@@ -403,6 +408,109 @@ class PyMBSD(object):
         # Show the figure
         plt.close(figFluence)
 
+    def plotFoldedMeasuredSpectrum(self, fName='FoldedMeasuredSpectrum.pdf'):
+        '''
+        Function to plot the measured spectrum after folding the reconstructed fluence spectrum with 
+        the response function for each detector.
+        '''
+
+        # Calculate and plot the 95% Bayesian credible regions for the unfolded spectrum
+        unfoldedBCIBeta = pm.stats.hpd(self.trace['PhiBeta'], alpha=0.05)
+        unfoldedBCIGamma = pm.stats.hpd(self.trace['PhiGamma'], alpha=0.05)
+
+        binRecoVal = np.array([unfoldedBCIBeta[:,0],                        # Beta 2.5% HPD
+                               unfoldedBCIGamma[:,0],                       # Gamma 2.5% HPD
+                               np.mean(self.trace['PhiBeta'],0),            # Beta Mean
+                               np.mean(self.trace['PhiGamma'],0),           # Gamma Mean
+                               unfoldedBCIBeta[:,1],                        # Beta 97.5% HPD
+                               unfoldedBCIGamma[:,1]])                      # Gamma 97.5% HPD
+
+        # Define the forward model
+        binFoldedVal = np.array([np.dot(self.ResponseBetaPlastic[0].T, binRecoVal[0]) + np.dot(self.ResponseGammaPlastic[0].T, binRecoVal[1]),
+                                np.dot(self.ResponseBetaLaBr3[0].T, binRecoVal[0]) + np.dot(self.ResponseGammaLaBr3[0].T, binRecoVal[1]),
+                                np.dot(self.ResponseBetaPlastic[0].T, binRecoVal[2]) + np.dot(self.ResponseGammaPlastic[0].T, binRecoVal[3]),
+                                np.dot(self.ResponseBetaLaBr3[0].T, binRecoVal[2]) + np.dot(self.ResponseGammaLaBr3[0].T, binRecoVal[3]),
+                                np.dot(self.ResponseBetaPlastic[0].T, binRecoVal[4]) + np.dot(self.ResponseGammaPlastic[0].T, binRecoVal[5]),
+                                np.dot(self.ResponseBetaLaBr3[0].T, binRecoVal[4]) + np.dot(self.ResponseGammaLaBr3[0].T, binRecoVal[5])])
+        
+        # Create a figure to plot the spectrum
+        figFolded, axFolded = plt.subplots(1,2, figsize=(fig_size[0]*2,fig_size[1]))
+        
+        # Plot the data spectrum
+        pTruthPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+                            np.repeat(self.DataPlastic[0], 2),
+                            lw=1.25, 
+                            color='black', 
+                            linestyle="-",
+                            drawstyle='steps')
+        
+        pTruthLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),  
+                            np.repeat(self.DataLaBr3[0], 2),
+                            lw=1.25, 
+                            color='black', 
+                            linestyle="-",
+                            drawstyle='steps')
+
+        # Plot the unfolded spectrum
+        pBCIPlastic = axFolded[0].fill_between(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+                                np.repeat(binFoldedVal[0], 2), 
+                                np.repeat(binFoldedVal[4], 2),
+                                color='red',
+                                alpha=0.4)
+
+        pBCILaBr3 = axFolded[1].fill_between(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))), 
+                                np.repeat(binFoldedVal[1], 2), 
+                                np.repeat(binFoldedVal[5], 2),
+                                color='red',
+                                alpha=0.4)
+
+        pMeanPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+                            np.repeat(binFoldedVal[2], 2),
+                            lw=1.25, 
+                            color='red', 
+                            linestyle="-",
+                            drawstyle='steps')
+
+        pMeanLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))), 
+                            np.repeat(binFoldedVal[3], 2),
+                            lw=1.25, 
+                            color='red', 
+                            linestyle="-",
+                            drawstyle='steps')
+
+        minY = 1.
+        maxY = np.maximum(np.power(10, np.ceil(np.log10(np.max(self.DataPlastic[0])))),
+                          np.power(10, np.ceil(np.log10(np.max(self.DataLaBr3[0])))))
+        
+        axFolded[0].set_title('Measured Spectrum from Eljen M550-20x8-1 Plastic Detector')
+        axFolded[0].set_xlabel('Measured Energy (keV)')
+        axFolded[0].set_ylabel('Counts')
+        axFolded[0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axFolded[0].set_ylim(minY, maxY)
+        axFolded[0].set_xscale('log')
+        axFolded[0].set_yscale('log')
+        axFolded[0].legend([pTruthPlastic, (pBCIPlastic, pMeanPlastic)], ['Measured','Folded (95% BCI)'], loc='best')
+
+        axFolded[1].set_title('Measured Spectrum from Saint Gobain B380 LaBr3')
+        axFolded[1].set_xlabel('Measured Energy (keV)')
+        axFolded[1].set_ylabel('Counts')
+        axFolded[1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axFolded[1].set_ylim(minY, maxY)
+        axFolded[1].set_xscale('log')
+        axFolded[1].set_yscale('log')
+        axFolded[1].legend([pTruthLaBr3, (pBCILaBr3, pMeanLaBr3)], ['Measured','Folded (95% BCI)'], loc='best')
+        
+        # Fine-tune figure 
+        figFolded.tight_layout()
+
+        # Save the figure 
+        plt.savefig(fName, bbox_inches="tight")
+        print 'Folded plot saved to: ' + fName
+
+        # Show the figure
+        plt.close(figFolded)
+
+        
     def plotUnfoldedDoseSpectrum(self, fName='UnfoldedDoseSpectrum.pdf', plotTruth = False):
         '''
         Function to plot the reconstructed dose spectrum after performing multidimensional Bayesian unfolding
@@ -790,7 +898,7 @@ class PyMBSD(object):
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
     
-    def sampleADVI(self, iterations = 1000000, samples = 500000):
+    def sampleADVI(self, iterations = 1000000, samples = 100000):
         '''
         Function to sample the posterior distribution using the ADVI variational inference algorithm.
         The outputs from this algorithm can be used to update the prior estimate before a more general
@@ -825,26 +933,8 @@ class PyMBSD(object):
         self.Samples = N
         self.Burn = B
         with self.model:
-            # Initialize with ADVI to speedup NUTS
-            # https://tdhopper.com/blog/speeding-up-pymc3-nuts-sampler/
-            #print 'Initialize the sampling using ADVI ...'
-            mu, sds, elbo = pm.variational.advi(n=200000)
-
-            # Initialization using MAP or some other algorithm
-            #print 'Finding a good starting point ...'
-            #mu, sds, elbo = pm.variational.advi(n=200000)
-            #start = pm.find_MAP(model = self.model)
-
-            # Select the Posterior sampling algorithm
-            print 'Sampling the posterior using NUTS ...'
-            step = pm.NUTS(scaling=np.power(self.model.dict_to_array(sds), 2), is_cov=True)
-
             # Sample
-            self.trace = pm.sample(self.Samples,
-                                   tune = self.Burn,
-                                   start = mu,
-                                   step=step)
-            
+            self.trace = pm.sample(self.Samples, tune = self.Burn)
 
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
@@ -872,6 +962,32 @@ class PyMBSD(object):
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
 
+    def sampleSMC(self, N = 10000, n_chains = 100, cores = 1):
+        '''
+        Function to sample the posterior distribution using a Markov Chain Monte Carlo (MCMC) and the
+        Sequential Monte Carlo (SMC) sampling algorithm in PyMC3.
+
+        URL: https://github.com/pymc-devs/pymc3/blob/master/docs/source/notebooks/SMC2_gaussians.ipynb
+        
+        Description:
+        Sampling from n-dimensional distributions with multiple peaks with a standard Metropolis-Hastings algorithm can be difficult, 
+        if not impossible, as the Markov chain often gets stuck in either of the minima. SMC is a way to overcome this problem, 
+        or at least to ameliorate it. 
+        ''' 
+        with self.model:
+            print 'Sampling the posterior using Sequential Monte Carlo (SMC)'
+            test_folder = mkdtemp(prefix='SMC_TEST')   
+            #start = pm.find_MAP(model = self.model)
+            self.trace = pm.smc.sample_smc(samples=1000,
+                                            n_chains=10,
+                                            n_jobs=1,
+                                            #start=start,
+                                            model=self.model, 
+                                            homepath=test_folder)
+
+            # Print a summary of the MCMC trace      
+            pm.summary(self.trace)
+
 # ROOT file context manager
 class ROOTFile(object):
 
@@ -889,8 +1005,8 @@ class ROOTFile(object):
 ResponseFilePlastic = './../TestData/Eljen Plastic Detector/Response Matrix/Eljen Plastic Detector.root'
 ResponseFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Response Matrix/Saint Gobain B380 LaBr3.root'
 
-DataFilePlastic = './../TestData/Eljen Plastic Detector/Cs137/Cs137_R_50_cm_Nr_200000000_ISO.root'
-DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Cs137/Cs137_R_50_cm_Nr_200000000_ISO.root'
+DataFilePlastic = './../TestData/Eljen Plastic Detector/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_600_100_keV_R_50_cm_Nr_200000000_ISO.root'
+DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_600_100_keV_R_50_cm_Nr_200000000_ISO.root'
 
 DoseCoeffFolder = './../../Dose Coefficients/'
 fDoseCoeffGamma  = 'ICRP116_Photon_DoseConversionCoefficients.xlsx'
@@ -932,10 +1048,17 @@ with ROOTFile(ResponseFilePlastic) as fResponsePlastic:
                 #myMBSD.sampleMH(N=100000,B=100000)
                 #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_MH.pdf')
                 #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_MH.pdf', plotTruth = True)
-                #myMBSD.sampleNUTS(100000,20000)
+                #myMBSD.sampleNUTS(1000,1000)
                 #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_NUTS.pdf')
                 #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_NUTS.pdf', plotTruth = True)
                 #myMBSD.sampleHMC()
                 #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_HMC.pdf')
                 #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_HMC.pdf', plotTruth = True)
+                #myMBSD.sampleSMC()
+                #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_SMC.pdf')
+                #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_SMC.pdf', plotTruth = True)
+
+                # Fold the reconstructed spectrum with the response
+                myMBSD.plotFoldedMeasuredSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Folded.pdf')
+                
 
