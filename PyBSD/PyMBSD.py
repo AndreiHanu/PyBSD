@@ -257,6 +257,7 @@ class PyMBSD(object):
 
         # Import coefficients from files
         df_ICRP116_Beta_WholeBody = pandas.read_excel(fName, sheet_name = 'Effective Dose (Whole Body)')
+        df_ICRP116_Beta_Skin = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Average Skin)')
         df_ICRP116_Beta_EyeLens = pandas.read_excel(fName, sheet_name = 'Absorbed Dose (Lens of Eye)')
 
         # Interpolate the coefficients into the true log energy bins
@@ -272,6 +273,11 @@ class PyMBSD(object):
         self.coeffBetaWB = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                     df_ICRP116_Beta_WholeBody['Energy (MeV)'].values*1E3, 
                                                     df_ICRP116_Beta_WholeBody['ISO (pSv cm2)'].values*coeffScalingFactor),
+                                      self.ResponseBetaPlastic[1][0]])
+
+        self.coeffBetaSkin = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
+                                                    df_ICRP116_Beta_Skin['Energy (MeV)'].values*1E3, 
+                                                    df_ICRP116_Beta_Skin['ISO (pGy cm2)'].values*coeffScalingFactor),
                                       self.ResponseBetaPlastic[1][0]])
         
         self.coeffBetaEye = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
@@ -1005,8 +1011,8 @@ class ROOTFile(object):
 ResponseFilePlastic = './../TestData/Eljen Plastic Detector/Response Matrix/Eljen Plastic Detector.root'
 ResponseFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Response Matrix/Saint Gobain B380 LaBr3.root'
 
-DataFilePlastic = './../TestData/Eljen Plastic Detector/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_600_100_keV_R_50_cm_Nr_200000000_ISO.root'
-DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_600_100_keV_R_50_cm_Nr_200000000_ISO.root'
+DataFilePlastic = './../TestData/Eljen Plastic Detector/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_2000_100_keV_R_50_cm_Nr_200000000_ISO.root'
+DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_2000_100_keV_R_50_cm_Nr_200000000_ISO.root'
 
 DoseCoeffFolder = './../../Dose Coefficients/'
 fDoseCoeffGamma  = 'ICRP116_Photon_DoseConversionCoefficients.xlsx'
@@ -1043,6 +1049,7 @@ with ROOTFile(ResponseFilePlastic) as fResponsePlastic:
                 myMBSD.sampleADVI()
                 myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_ADVI.pdf')
                 myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_ADVI.pdf', plotTruth = True)
+                myMBSD.plotFoldedMeasuredSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Folded_ADVI.pdf')
 
                 # Run MCMC Inference
                 #myMBSD.sampleMH(N=100000,B=100000)
@@ -1057,8 +1064,3 @@ with ROOTFile(ResponseFilePlastic) as fResponsePlastic:
                 #myMBSD.sampleSMC()
                 #myMBSD.plotUnfoldedFluenceSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Fluence_SMC.pdf')
                 #myMBSD.plotUnfoldedDoseSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Dose_SMC.pdf', plotTruth = True)
-
-                # Fold the reconstructed spectrum with the response
-                myMBSD.plotFoldedMeasuredSpectrum(fName = DataFilePlastic.split('.')[-2].split('/')[-1] + '_Folded.pdf')
-                
-
