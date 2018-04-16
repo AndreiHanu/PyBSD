@@ -1014,7 +1014,7 @@ ResponseFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Response Matrix/Saint
 DataFilePlastic = './../TestData/Eljen Plastic Detector/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_2000_100_keV_R_50_cm_Nr_200000000_ISO.root'
 DataFileLaBr3 = './../TestData/Saint Gobain B380 LaBr3/Mixed/gamma_Power_10_10000_keV_alpha_-3_electron_Gauss_2000_100_keV_R_50_cm_Nr_200000000_ISO.root'
 
-DoseCoeffFolder = './../../Dose Coefficients/'
+DoseCoeffFolder = './../Dose Coefficients/'
 fDoseCoeffGamma  = 'ICRP116_Photon_DoseConversionCoefficients.xlsx'
 fDoseCoeffBeta  = 'ICRP116_Electron_DoseConversionCoefficients.xlsx'
 
