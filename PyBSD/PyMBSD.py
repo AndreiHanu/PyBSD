@@ -1190,10 +1190,6 @@ fOutputFilename = args.OutputFilename if args.OutputFilename else ''
 fDoseCoeffGamma  = './Dose Coefficients/ICRP116_Photon_DoseConversionCoefficients.xlsx'
 fDoseCoeffBeta  = './Dose Coefficients/ICRP116_Electron_DoseConversionCoefficients.xlsx'
 
-# BA Unit 1 Data
-DataFileOutput = './../../23JAN2018 BA Unit 1 Boiler 6 Measurements/23JAN2018_BA_U1_B06_CL_CoverOn_20cm.root'
-
-
 # Initiate the class
 myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (Electron)'),
                 MigGammaPlastic = fResponsePlastic.Get('Energy Migration Matrix (Gamma)'), 
