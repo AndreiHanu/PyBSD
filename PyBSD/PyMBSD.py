@@ -77,7 +77,7 @@ class PyMBSD(object):
     def __init__(self,
                 MigBetaPlastic, MigGammaPlastic, MigBetaLaBr3, MigGammaLaBr3,
                 SourceBetaPlastic, SourceGammaPlastic, SourceBetaLaBr3,SourceGammaLaBr3,
-                ):
+                ThresholdEnergy):
         '''
         Object initialization function
         '''
@@ -92,15 +92,18 @@ class PyMBSD(object):
         if not isinstance(SourceBetaLaBr3, ROOT.TH1): raise TypeError("Beta source spectrum for the LaBr3 detector must be of type ROOT.TH1")
         if not isinstance(SourceGammaLaBr3, ROOT.TH1): raise TypeError("Gamma source spectrum for the LaBr3 detector must be of type ROOT.TH1")
 
+        # Set the threshold energy
+        self.ThresholdEnergy = np.double(ThresholdEnergy) if ThresholdEnergy > 0. else np.double(0.)
+
         # Copy the inputs to the object
-        self.MigBetaPlastic = hist2array(MigBetaPlastic, include_overflow=False, copy=True, return_edges=True)
-        self.MigGammaPlastic = hist2array(MigGammaPlastic, include_overflow=False, copy=True, return_edges=True)
-        self.MigBetaLaBr3 = hist2array(MigBetaLaBr3, include_overflow=False, copy=True, return_edges=True)
-        self.MigGammaLaBr3 = hist2array(MigGammaLaBr3, include_overflow=False, copy=True, return_edges=True)
-        self.SourceBetaPlastic = hist2array(SourceBetaPlastic, include_overflow=False, copy=True, return_edges=True)
-        self.SourceGammaPlastic = hist2array(SourceGammaPlastic, include_overflow=False, copy=True, return_edges=True)
-        self.SourceBetaLaBr3 = hist2array(SourceBetaLaBr3, include_overflow=False, copy=True, return_edges=True)
-        self.SourceGammaLaBr3 = hist2array(SourceGammaLaBr3, include_overflow=False, copy=True, return_edges=True)
+        self.MigBetaPlastic = np.asarray(hist2array(MigBetaPlastic, include_overflow=False, copy=True, return_edges=True))
+        self.MigGammaPlastic = np.asarray(hist2array(MigGammaPlastic, include_overflow=False, copy=True, return_edges=True))
+        self.MigBetaLaBr3 = np.asarray(hist2array(MigBetaLaBr3, include_overflow=False, copy=True, return_edges=True))
+        self.MigGammaLaBr3 = np.asarray(hist2array(MigGammaLaBr3, include_overflow=False, copy=True, return_edges=True))
+        self.SourceBetaPlastic = np.asarray(hist2array(SourceBetaPlastic, include_overflow=False, copy=True, return_edges=True))
+        self.SourceGammaPlastic = np.asarray(hist2array(SourceGammaPlastic, include_overflow=False, copy=True, return_edges=True))
+        self.SourceBetaLaBr3 = np.asarray(hist2array(SourceBetaLaBr3, include_overflow=False, copy=True, return_edges=True))
+        self.SourceGammaLaBr3 = np.asarray(hist2array(SourceGammaLaBr3, include_overflow=False, copy=True, return_edges=True))
 
         # Calculate the response matrix (aka. conditional probability) using Eq. 5 from the Choudalakis paper
         # Response[i,j] = P(d = j|t = i) = P(t = i, d = j)/P(t = i)
@@ -133,7 +136,26 @@ class PyMBSD(object):
                     # Normalize with Truth
                     self.ResponseGammaLaBr3[0][i,j]=(self.ResponseGammaLaBr3[0][i,j]/self.SourceGammaLaBr3[0][i] if np.nonzero(self.SourceGammaLaBr3[0][i]) else 0.)
 
-    
+        # Round the response matrix bin edges to avoid the floating point rounding error when comparing against threshold
+        self.ResponseBetaPlastic[1] = np.round(self.ResponseBetaPlastic[1], 5)
+        self.ResponseGammaPlastic[1] = np.round(self.ResponseGammaPlastic[1], 5)
+        self.ResponseBetaLaBr3[1] = np.round(self.ResponseBetaLaBr3[1], 5)
+        self.ResponseGammaLaBr3[1] = np.round(self.ResponseGammaLaBr3[1], 5)
+        
+        # Remove response matrix elements below threshold energy (high pass filter)
+        self.ResponseBetaPlastic[0] = np.delete(self.ResponseBetaPlastic[0], np.where(self.ResponseBetaPlastic[1][0] < self.ThresholdEnergy), axis=0)
+        self.ResponseBetaPlastic[0] = np.delete(self.ResponseBetaPlastic[0], np.where(self.ResponseBetaPlastic[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseBetaPlastic[1] = np.delete(self.ResponseBetaPlastic[1], np.where(self.ResponseBetaPlastic[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseGammaPlastic[0] = np.delete(self.ResponseGammaPlastic[0], np.where(self.ResponseGammaPlastic[1][0] < self.ThresholdEnergy), axis=0)
+        self.ResponseGammaPlastic[0] = np.delete(self.ResponseGammaPlastic[0], np.where(self.ResponseGammaPlastic[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseGammaPlastic[1] = np.delete(self.ResponseGammaPlastic[1], np.where(self.ResponseGammaPlastic[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseBetaLaBr3[0] = np.delete(self.ResponseBetaLaBr3[0], np.where(self.ResponseBetaLaBr3[1][0] < self.ThresholdEnergy), axis=0)
+        self.ResponseBetaLaBr3[0] = np.delete(self.ResponseBetaLaBr3[0], np.where(self.ResponseBetaLaBr3[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseBetaLaBr3[1] = np.delete(self.ResponseBetaLaBr3[1], np.where(self.ResponseBetaLaBr3[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseGammaLaBr3[0] = np.delete(self.ResponseGammaLaBr3[0], np.where(self.ResponseGammaLaBr3[1][0] < self.ThresholdEnergy), axis=0)
+        self.ResponseGammaLaBr3[0] = np.delete(self.ResponseGammaLaBr3[0], np.where(self.ResponseGammaLaBr3[1][0] < self.ThresholdEnergy), axis=1)
+        self.ResponseGammaLaBr3[1] = np.delete(self.ResponseGammaLaBr3[1], np.where(self.ResponseGammaLaBr3[1][0] < self.ThresholdEnergy), axis=1)
+
     def plotResponse(self,  fName='ResponseMatrix.jpg'):
         '''
         Function to plot the response matrices
@@ -310,14 +332,14 @@ class PyMBSD(object):
         figFluence, axFluence = plt.subplots(2,2, figsize=(fig_size[0]*1.5,fig_size[1]*1.5))
         
         # Plot the data spectrum
-        axFluence[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+        axFluence[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))), 
                     np.repeat(self.DataPlastic[0], 2),
                     lw=1.25, 
                     color='black', 
                     linestyle="-",
                     drawstyle='steps')
         
-        axFluence[0][1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),  
+        axFluence[0][1].plot(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),  
                     np.repeat(self.DataLaBr3[0], 2),
                     lw=1.25, 
                     color='black', 
@@ -331,7 +353,7 @@ class PyMBSD(object):
         axFluence[0][0].set_title('Measured Spectrum from Eljen M550-20x8-1 Plastic Detector')
         axFluence[0][0].set_xlabel('Measured Energy (keV)')
         axFluence[0][0].set_ylabel('Count Rate (cps)')
-        axFluence[0][0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axFluence[0][0].set_xlim(min(self.DataPlastic[1]),max(self.DataPlastic[1]))
         axFluence[0][0].set_ylim(minY, maxY)
         axFluence[0][0].set_xscale('log')
         axFluence[0][0].set_yscale('log')
@@ -339,14 +361,14 @@ class PyMBSD(object):
         axFluence[0][1].set_title('Measured Spectrum from Saint Gobain B380 LaBr3 Detector')
         axFluence[0][1].set_xlabel('Measured Energy (keV)')
         axFluence[0][1].set_ylabel('Count Rate (cps)')
-        axFluence[0][1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axFluence[0][1].set_xlim(min(self.DataLaBr3[1]),max(self.DataLaBr3[1]))
         axFluence[0][1].set_ylim(minY, maxY)
         axFluence[0][1].set_xscale('log')
         axFluence[0][1].set_yscale('log')
 
         # Plot the true fluence spectrum, if available.
         if self.TruthBeta:
-            pTruthBeta, = axFluence[1][0].plot(sorted(np.concatenate((self.TruthBeta[1][0][1:],self.TruthBeta[1][0][:-1]))), 
+            pTruthBeta, = axFluence[1][0].plot(sorted(np.concatenate((self.TruthBeta[1][1:],self.TruthBeta[1][:-1]))), 
                                             np.repeat(self.TruthBeta[0], 2),
                                             lw=1.25, 
                                             color='black', 
@@ -354,7 +376,7 @@ class PyMBSD(object):
                                             drawstyle='steps')
 
         if self.TruthGamma:
-            pTruthGamma, = axFluence[1][1].plot(sorted(np.concatenate((self.TruthGamma[1][0][1:],self.TruthGamma[1][0][:-1]))), 
+            pTruthGamma, = axFluence[1][1].plot(sorted(np.concatenate((self.TruthGamma[1][1:],self.TruthGamma[1][:-1]))), 
                                             np.repeat(self.TruthGamma[0], 2),
                                             lw=1.25, 
                                             color='black', 
@@ -500,14 +522,14 @@ class PyMBSD(object):
                         label_mode = 'L')
         
         # Plot the data spectrum
-        pTruthPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+        pTruthPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))), 
                             np.repeat(self.DataPlastic[0], 2),
                             lw=1.25, 
                             color='black', 
                             linestyle="-",
                             drawstyle='steps')
         
-        pTruthLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),  
+        pTruthLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),  
                             np.repeat(self.DataLaBr3[0], 2),
                             lw=1.25, 
                             color='black', 
@@ -515,26 +537,26 @@ class PyMBSD(object):
                             drawstyle='steps')
 
         # Plot the folded spectrum
-        pBCIPlastic = axFolded[0].fill_between(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+        pBCIPlastic = axFolded[0].fill_between(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))), 
                                 np.repeat(binFoldedVal[0], 2), 
                                 np.repeat(binFoldedVal[4], 2),
                                 color='red',
                                 alpha=0.4)
 
-        pBCILaBr3 = axFolded[1].fill_between(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))), 
+        pBCILaBr3 = axFolded[1].fill_between(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))), 
                                 np.repeat(binFoldedVal[1], 2), 
                                 np.repeat(binFoldedVal[5], 2),
                                 color='red',
                                 alpha=0.4)
 
-        pMeanPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+        pMeanPlastic, = axFolded[0].plot(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))), 
                             np.repeat(binFoldedVal[2], 2),
                             lw=1.25, 
                             color='red', 
                             linestyle="-",
                             drawstyle='steps')
 
-        pMeanLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))), 
+        pMeanLaBr3, = axFolded[1].plot(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))), 
                             np.repeat(binFoldedVal[3], 2),
                             lw=1.25, 
                             color='red', 
@@ -548,7 +570,7 @@ class PyMBSD(object):
         axFolded[0].set_title('Measured Spectrum from Eljen Plastic Detector')
         axFolded[0].set_xlabel('Measured Energy (keV)')
         axFolded[0].set_ylabel('Count Rate (cps)')
-        axFolded[0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axFolded[0].set_xlim(min(self.DataPlastic[1]),max(self.DataPlastic[1]))
         axFolded[0].set_ylim(minY, maxY)
         axFolded[0].set_xscale('log')
         axFolded[0].set_yscale('log')
@@ -557,49 +579,49 @@ class PyMBSD(object):
         axFolded[1].set_title('Measured Spectrum from Saint Gobain LaBr3 Detector')
         axFolded[1].set_xlabel('Measured Energy (keV)')
         axFolded[1].set_ylabel('Count Rate (cps)')
-        axFolded[1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axFolded[1].set_xlim(min(self.DataLaBr3[1]),max(self.DataLaBr3[1]))
         axFolded[1].set_ylim(minY, maxY)
         axFolded[1].set_xscale('log')
         axFolded[1].set_yscale('log')
         axFolded[1].legend([pTruthLaBr3, (pBCILaBr3, pMeanLaBr3)], ['Measured','Folded (95% BCI)'], loc='best')
 
         # Plot the significance between measured and reconstructed spectrum
-        axFolded[2].fill_between(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))),
+        axFolded[2].fill_between(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))),
                                 0, 
                                 np.repeat(self.calcSignificance(binFoldedVal[2], self.DataPlastic[0]), 2), 
                                 where = np.repeat(self.calcSignificance(binFoldedVal[2], self.DataPlastic[0]), 2) > 0,
                                 color='red', 
                                 alpha=0.2)
         
-        axFolded[2].fill_between(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))),
+        axFolded[2].fill_between(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))),
                                 0, 
                                 np.repeat(self.calcSignificance(binFoldedVal[2], self.DataPlastic[0]), 2), 
                                 where = np.repeat(self.calcSignificance(binFoldedVal[2], self.DataPlastic[0]), 2) < 0,
                                 color='blue', 
                                 alpha=0.2)
         
-        axFolded[2].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))),
+        axFolded[2].plot(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))),
                         np.repeat(self.calcSignificance(binFoldedVal[2], self.DataPlastic[0]), 2), 
                         lw=1.25, 
                         color='black', 
                         linestyle="-", 
                         drawstyle='steps')
 
-        axFolded[3].fill_between(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),
+        axFolded[3].fill_between(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),
                                 0, 
                                 np.repeat(self.calcSignificance(binFoldedVal[3], self.DataLaBr3[0]), 2), 
                                 where = np.repeat(self.calcSignificance(binFoldedVal[3], self.DataLaBr3[0]), 2) > 0,
                                 color='red', 
                                 alpha=0.2)
         
-        axFolded[3].fill_between(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),
+        axFolded[3].fill_between(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),
                                 0, 
                                 np.repeat(self.calcSignificance(binFoldedVal[3], self.DataLaBr3[0]), 2), 
                                 where = np.repeat(self.calcSignificance(binFoldedVal[3], self.DataLaBr3[0]), 2) < 0,
                                 color='blue', 
                                 alpha=0.2)
         
-        axFolded[3].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),
+        axFolded[3].plot(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),
                         np.repeat(self.calcSignificance(binFoldedVal[3], self.DataLaBr3[0]), 2), 
                         lw=1.25, 
                         color='black', 
@@ -608,13 +630,13 @@ class PyMBSD(object):
 
         axFolded[2].set_ylabel('Significance')  
         axFolded[2].set_xlabel('Measured Energy (keV)')
-        axFolded[2].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axFolded[2].set_xlim(min(self.DataPlastic[1]),max(self.DataPlastic[1]))
         axFolded[2].set_ylim(-5,5)
         axFolded[2].set_xscale('log', nonposy='clip')
 
         axFolded[3].set_ylabel('Significance')  
         axFolded[3].set_xlabel('Measured Energy (keV)')
-        axFolded[3].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axFolded[3].set_xlim(min(self.DataLaBr3[1]),max(self.DataLaBr3[1]))
         axFolded[3].set_ylim(-5,5)
         axFolded[3].set_xscale('log', nonposy='clip')
         
@@ -673,14 +695,14 @@ class PyMBSD(object):
         figDose, axDose = plt.subplots(3,2, figsize=(fig_size[0]*2,fig_size[1]*2))
 
         # Plot the data spectrum
-        axDose[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][0][:-1],self.DataPlastic[1][0][1:]))), 
+        axDose[0][0].plot(sorted(np.concatenate((self.DataPlastic[1][:-1],self.DataPlastic[1][1:]))), 
                     np.repeat(self.DataPlastic[0], 2),
                     lw=1.25, 
                     color='black', 
                     linestyle="-",
                     drawstyle='steps')
         
-        axDose[0][1].plot(sorted(np.concatenate((self.DataLaBr3[1][0][:-1],self.DataLaBr3[1][0][1:]))),  
+        axDose[0][1].plot(sorted(np.concatenate((self.DataLaBr3[1][:-1],self.DataLaBr3[1][1:]))),  
                     np.repeat(self.DataLaBr3[0], 2),
                     lw=1.25, 
                     color='black', 
@@ -694,7 +716,7 @@ class PyMBSD(object):
         axDose[0][0].set_title('Measured Spectrum from Eljen M550-20x8-1 Plastic Detector')
         axDose[0][0].set_xlabel('Measured Energy (keV)')
         axDose[0][0].set_ylabel('Count Rate (cps)')
-        axDose[0][0].set_xlim(min(self.DataPlastic[1][0]),max(self.DataPlastic[1][0]))
+        axDose[0][0].set_xlim(min(self.DataPlastic[1]),max(self.DataPlastic[1]))
         axDose[0][0].set_ylim(minY, maxY)
         axDose[0][0].set_xscale('log')
         axDose[0][0].set_yscale('log')
@@ -702,7 +724,7 @@ class PyMBSD(object):
         axDose[0][1].set_title('Measured Spectrum from Saint Gobain B380 LaBr3 Detector')
         axDose[0][1].set_xlabel('Measured Energy (keV)')
         axDose[0][1].set_ylabel('Count Rate (cps)')
-        axDose[0][1].set_xlim(min(self.DataLaBr3[1][0]),max(self.DataLaBr3[1][0]))
+        axDose[0][1].set_xlim(min(self.DataLaBr3[1]),max(self.DataLaBr3[1]))
         axDose[0][1].set_ylim(minY, maxY)
         axDose[0][1].set_xscale('log')
         axDose[0][1].set_yscale('log')
@@ -930,7 +952,9 @@ class PyMBSD(object):
         # Check the input instance type for each data file
         if DataPlastic:
             if isinstance(DataPlastic, ROOT.TH1): 
-                self.DataPlastic = hist2array(DataPlastic, include_overflow=False, copy=True, return_edges=True)
+                self.DataPlastic = np.asarray(hist2array(DataPlastic, include_overflow=False, copy=True, return_edges=True))
+                self.DataPlastic[0] = np.delete(self.DataPlastic[0], np.where(self.DataPlastic[1][0] < self.ThresholdEnergy))
+                self.DataPlastic[1] = np.delete(self.DataPlastic[1], np.where(self.DataPlastic[1][0] < self.ThresholdEnergy))
             else:
                 raise TypeError("Data histogram from the Plastic detector must be of type ROOT.TH1")
         else:
@@ -938,7 +962,9 @@ class PyMBSD(object):
         
         if DataLaBr3:
             if isinstance(DataLaBr3, ROOT.TH1): 
-                self.DataLaBr3 = hist2array(DataLaBr3, include_overflow=False, copy=True, return_edges=True)
+                self.DataLaBr3 = np.asarray(hist2array(DataLaBr3, include_overflow=False, copy=True, return_edges=True))
+                self.DataLaBr3[0] = np.delete(self.DataLaBr3[0], np.where(self.DataLaBr3[1][0] < self.ThresholdEnergy))
+                self.DataLaBr3[1] = np.delete(self.DataLaBr3[1], np.where(self.DataLaBr3[1][0] < self.ThresholdEnergy))
             else:
                 raise TypeError("Data histogram from the LaBr3 detector must be of type ROOT.TH1")
         else:
@@ -946,7 +972,9 @@ class PyMBSD(object):
 
         if TruthBeta:
             if isinstance(TruthBeta, ROOT.TH1): 
-                self.TruthBeta = hist2array(TruthBeta, include_overflow=False, copy=True, return_edges=True)
+                self.TruthBeta = np.asarray(hist2array(TruthBeta, include_overflow=False, copy=True, return_edges=True))
+                self.TruthBeta[0] = np.delete(self.TruthBeta[0], np.where(self.TruthBeta[1][0] < self.ThresholdEnergy))
+                self.TruthBeta[1] = np.delete(self.TruthBeta[1], np.where(self.TruthBeta[1][0] < self.ThresholdEnergy))
             else:
                 raise TypeError("Truth histogram for the Beta spectrum must be of type ROOT.TH1")
         else:
@@ -954,7 +982,9 @@ class PyMBSD(object):
 
         if TruthGamma:
             if isinstance(TruthGamma, ROOT.TH1): 
-                self.TruthGamma = hist2array(TruthGamma, include_overflow=False, copy=True, return_edges=True)
+                self.TruthGamma = np.asarray(hist2array(TruthGamma, include_overflow=False, copy=True, return_edges=True))
+                self.TruthGamma[0] = np.delete(self.TruthGamma[0], np.where(self.TruthGamma[1][0] < self.ThresholdEnergy))
+                self.TruthGamma[1] = np.delete(self.TruthGamma[1], np.where(self.TruthGamma[1][0] < self.ThresholdEnergy))
             else:
                 raise TTypeError("Truth histogram for the Gamma spectrum must be of type ROOT.TH1")
         else:
@@ -963,8 +993,13 @@ class PyMBSD(object):
         # Check if background is available and subtract from data
         if BackgroundLaBr3:
             if isinstance(BackgroundLaBr3, ROOT.TH1): 
-                self.DataLaBr3[0][:] -= hist2array(BackgroundLaBr3, include_overflow=False, copy=True, return_edges=True)[0][:]
+                self.BackgroundLaBr3 = np.asarray(hist2array(BackgroundLaBr3, include_overflow=False, copy=True, return_edges=True))
+                self.BackgroundLaBr3[0] = np.delete(self.BackgroundLaBr3[0], np.where(self.BackgroundLaBr3[1][0] < self.ThresholdEnergy))
+                self.BackgroundLaBr3[1] = np.delete(self.BackgroundLaBr3[1], np.where(self.BackgroundLaBr3[1][0] < self.ThresholdEnergy))
+
+                self.DataLaBr3[0] -= self.BackgroundLaBr3[0]
                 self.DataLaBr3[0][self.DataLaBr3[0] < 0] = 0.
+                
             else:
                 raise TypeError("Background histogram from the LaBr3 detector must be of type ROOT.TH1")
 
@@ -1172,6 +1207,7 @@ parser.add_argument('SpectrumPlastic', type=ROOTFile, help='ROOT file containing
 parser.add_argument('SpectrumLaBr3', type=ROOTFile, help='ROOT file containing the measured spectrum from the LaBr3 detector')
 parser.add_argument('--BackgroundLaBr3', type=ROOTFile, help='ROOT file containing the measured background spectrum from the LaBr3 detector')
 parser.add_argument('--OutputFilename', help='Filename to be used for output')
+parser.add_argument('--ThresholdEnergy', help='Threshold energy, in keV, above which channels will be included in the unfolding')
 args = parser.parse_args()
 
 # Detector Response Matrices
@@ -1198,7 +1234,8 @@ myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (
                 SourceBetaPlastic = fResponsePlastic.Get('Source Spectrum (Electron)'),
                 SourceGammaPlastic = fResponsePlastic.Get('Source Spectrum (Gamma)'),
                 SourceBetaLaBr3 = fResponseLaBr3.Get('Source Spectrum (Electron)'),
-                SourceGammaLaBr3 = fResponseLaBr3.Get('Source Spectrum (Gamma)'))
+                SourceGammaLaBr3 = fResponseLaBr3.Get('Source Spectrum (Gamma)'),
+                ThresholdEnergy = args.ThresholdEnergy if args.ThresholdEnergy else 0.)
 
 # Plot the response matrices
 myMBSD.plotResponse(fName = 'ResponseMatrix.jpg')
