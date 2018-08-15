@@ -96,6 +96,7 @@ class PyMBSD(object):
         self.ThresholdEnergy = np.double(ThresholdEnergy) if ThresholdEnergy > 0. else np.double(0.)
 
         # Copy the inputs to the object
+        # NOTE: Convert tuple to ndarray so we can remove channels below threshold energy
         self.MigBetaPlastic = np.asarray(hist2array(MigBetaPlastic, include_overflow=False, copy=True, return_edges=True))
         self.MigGammaPlastic = np.asarray(hist2array(MigGammaPlastic, include_overflow=False, copy=True, return_edges=True))
         self.MigBetaLaBr3 = np.asarray(hist2array(MigBetaLaBr3, include_overflow=False, copy=True, return_edges=True))
@@ -1247,12 +1248,9 @@ myMBSD.loadDoseCoeffBeta(fName = fDoseCoeffBeta)
 # Build the model
 myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Logarithmic Energy Spectrum'), 
                   DataLaBr3 = fDataLaBr3.Get('Logarithmic Energy Spectrum'),
+                  TruthBeta = fDataPlastic.Get('Source Spectrum (Electron)'),
+                  TruthGamma = fDataPlastic.Get('Source Spectrum (Gamma)'),
                   BackgroundLaBr3 = fBackgroundLaBr3.Get('Logarithmic Energy Spectrum') if fBackgroundLaBr3 else None)
-                    
-#myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'),
-#                  DataLaBr3 = fDataLaBr3.Get('Detector Measured Spectrum'),
-#                  TruthBeta = fDataPlastic.Get('Source Spectrum (Electron)'),
-#                  TruthGamma = fDataPlastic.Get('Source Spectrum (Gamma)'))
 
 # Run Variational Inference
 myMBSD.sampleADVI()
