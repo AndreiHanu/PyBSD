@@ -443,10 +443,41 @@ class PyMBSD(object):
 
         # Save the figure 
         plt.savefig(fName, bbox_inches="tight")
-        print 'Unfolded plot saved to: ' + fName
+        print '\nUnfolded fluence rate plots saved to: ' 
+        print fName
 
         # Show the figure
         plt.close(figFluence)
+
+        # Export the spectra to a ROOT file
+        print fName.split('.pdf')[-2] + '.xlsx'
+        xlsWriter = pandas.ExcelWriter(fName.split('.pdf')[-2] + '.xlsx')
+
+        dfFluenceBeta = pandas.DataFrame({'Min Energy (keV)':self.ResponseBetaPlastic[1][0][:-1],
+                                       'Max Energy (keV)':self.ResponseBetaPlastic[1][0][1:],
+                                       'Mean Fluence Rate (cm-2 s-1)':binRecoVal[2],
+                                       '2.5% Fluence Rate (cm-2 s-1)':binRecoVal[0],
+                                       '97.5% Fluence Rate (cm-2 s-1)':binRecoVal[4]})
+
+        dfFluenceGamma = pandas.DataFrame({'Min Energy (keV)':self.ResponseGammaLaBr3[1][0][:-1],
+                                        'Max Energy (keV)':self.ResponseGammaLaBr3[1][0][1:],
+                                        'Mean Fluence Rate (cm-2 s-1)':binRecoVal[3],
+                                        '2.5% Fluence Rate (cm-2 s-1)':binRecoVal[1],
+                                        '97.5% Fluence Rate (cm-2 s-1)':binRecoVal[5]})
+
+        dfFluenceBeta.to_excel(xlsWriter,'Beta Fluence Rate', columns=['Min Energy (keV)',
+                                                                       'Max Energy (keV)',
+                                                                       'Mean Fluence Rate (cm-2 s-1)',
+                                                                       '2.5% Fluence Rate (cm-2 s-1)',
+                                                                       '97.5% Fluence Rate (cm-2 s-1)'])
+
+        dfFluenceGamma.to_excel(xlsWriter,'Gamma Fluence Rate', columns=['Min Energy (keV)',
+                                                                       'Max Energy (keV)',
+                                                                       'Mean Fluence Rate (cm-2 s-1)',
+                                                                       '2.5% Fluence Rate (cm-2 s-1)',
+                                                                       '97.5% Fluence Rate (cm-2 s-1)'])
+        
+        xlsWriter.save()
 
     def calcSignificance(self, expected, observed):
         '''
@@ -646,7 +677,7 @@ class PyMBSD(object):
 
         # Save the figure 
         plt.savefig(fName, bbox_inches="tight")
-        print 'Folded plot saved to: ' + fName
+        print '\nFolded count rate plot saved to: \n' + fName
 
         # Show the figure
         plt.close(figFolded)
@@ -893,11 +924,11 @@ class PyMBSD(object):
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[0])) if self.TruthBeta is not None else 'Unknown',
                                         '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[6]), np.sum(binRecoDoseVal[0]), np.sum(binRecoDoseVal[12]))),
                                         ('Skin',
-                                        '{:0.2E} mRad/hr'.format(np.sum(binTruthDoseVal[1])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRad/hr'.format(np.sum(binRecoDoseVal[7]), np.sum(binRecoDoseVal[1]), np.sum(binRecoDoseVal[13]))),
+                                        '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[1])) if self.TruthGamma is not None else 'Unknown',
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[7]), np.sum(binRecoDoseVal[1]), np.sum(binRecoDoseVal[13]))),
                                         ('Eye',
-                                        '{:0.2E} mRad/hr'.format(np.sum(binTruthDoseVal[2])) if self.TruthBeta is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRad/hr'.format(np.sum(binRecoDoseVal[8]), np.sum(binRecoDoseVal[2]), np.sum(binRecoDoseVal[14])))),
+                                        '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[2])) if self.TruthBeta is not None else 'Unknown',
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[8]), np.sum(binRecoDoseVal[2]), np.sum(binRecoDoseVal[14])))),
                                         cellLoc = 'center',
                                         colLabels = ['Organ', 'True Dose', 'Estimated Dose (95% BCI)'],
                                         colLoc = 'center',
@@ -909,11 +940,11 @@ class PyMBSD(object):
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[3])) if self.TruthGamma is not None else 'Unknown',
                                         '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[9]), np.sum(binRecoDoseVal[3]), np.sum(binRecoDoseVal[15]))),
                                         ('Skin',
-                                        '{:0.2E} mRad/hr'.format(np.sum(binTruthDoseVal[4])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRad/hr'.format(np.sum(binRecoDoseVal[10]), np.sum(binRecoDoseVal[4]), np.sum(binRecoDoseVal[16]))),
+                                        '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[4])) if self.TruthGamma is not None else 'Unknown',
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[10]), np.sum(binRecoDoseVal[4]), np.sum(binRecoDoseVal[16]))),
                                         ('Eye',
-                                        '{:0.2E} mRad/hr'.format(np.sum(binTruthDoseVal[5])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRad/hr'.format(np.sum(binRecoDoseVal[11]), np.sum(binRecoDoseVal[5]), np.sum(binRecoDoseVal[17])))),
+                                        '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[5])) if self.TruthGamma is not None else 'Unknown',
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[11]), np.sum(binRecoDoseVal[5]), np.sum(binRecoDoseVal[17])))),
                                         cellLoc = 'center',
                                         colLabels = ['Organ', 'True Dose', 'Estimated Dose (95% BCI)'],
                                         colLoc = 'center',
@@ -927,7 +958,7 @@ class PyMBSD(object):
 
         axDose[2][0].set_title('Reconstructed Beta-ray Dose Spectrum')
         axDose[2][0].set_xlabel('True Energy (keV)')
-        axDose[2][0].set_ylabel('Dose Rate (mRem/hr or mRad/hr)')
+        axDose[2][0].set_ylabel('Dose Rate (mRem/hr)')
         axDose[2][0].set_xscale('log')
         axDose[2][0].set_yscale('log')
         axDose[2][0].set_xlim(min(self.ResponseBetaLaBr3[1][0]),max(self.ResponseBetaLaBr3[1][0]))
@@ -938,7 +969,7 @@ class PyMBSD(object):
 
         axDose[2][1].set_title('Reconstructed Gamma-ray Dose Spectrum')
         axDose[2][1].set_xlabel('True Energy (keV)')
-        axDose[2][1].set_ylabel('Dose Rate (mRem/hr or mRad/hr)')
+        axDose[2][1].set_ylabel('Dose Rate (mRem/hr)')
         axDose[2][1].set_xscale('log')
         axDose[2][1].set_yscale('log')
         axDose[2][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
@@ -952,10 +983,64 @@ class PyMBSD(object):
 
         # Save the figure 
         plt.savefig(fName, bbox_inches="tight")
-        print 'Unfolded plot saved to: ' + fName
+        print '\nUnfolded dose rate plots saved to: \n' + fName
 
         # Show the figure
         plt.close(figDose)
+
+        # Export the spectra to a ROOT file
+        print fName.split('.pdf')[-2] + '.xlsx'
+        xlsWriter = pandas.ExcelWriter(fName.split('.pdf')[-2] + '.xlsx')
+
+        dfDoseBeta = pandas.DataFrame({'Min Energy (keV)':self.ResponseBetaPlastic[1][0][:-1],
+                                       'Max Energy (keV)':self.ResponseBetaPlastic[1][0][1:],
+                                       'Mean Body Dose Rate (mRem/hr)':binRecoDoseVal[6],
+                                       '2.5% Body Dose Rate (mRem/hr)':binRecoDoseVal[0],
+                                       '97.5% Body Dose Rate (mRem/hr)':binRecoDoseVal[12],
+                                       'Mean Skin Dose Rate (mRem/hr)':binRecoDoseVal[7],
+                                       '2.5% Skin Dose Rate (mRem/hr)':binRecoDoseVal[1],
+                                       '97.5% Skin Dose Rate (mRem/hr)':binRecoDoseVal[13],
+                                       'Mean Eye Dose Rate (mRem/hr)':binRecoDoseVal[8],
+                                       '2.5% Eye Dose Rate (mRem/hr)':binRecoDoseVal[2],
+                                       '97.5% Eye Dose Rate (mRem/hr)':binRecoDoseVal[14]})
+
+        dfDoseGamma = pandas.DataFrame({'Min Energy (keV)':self.ResponseGammaLaBr3[1][0][:-1],
+                                        'Max Energy (keV)':self.ResponseGammaLaBr3[1][0][1:],
+                                        'Mean Body Dose Rate (mRem/hr)':binRecoDoseVal[9],
+                                        '2.5% Body Dose Rate (mRem/hr)':binRecoDoseVal[3],
+                                        '97.5% Body Dose Rate (mRem/hr)':binRecoDoseVal[15],
+                                        'Mean Skin Dose Rate (mRem/hr)':binRecoDoseVal[10],
+                                        '2.5% Skin Dose Rate (mRem/hr)':binRecoDoseVal[4],
+                                        '97.5% Skin Dose Rate (mRem/hr)':binRecoDoseVal[16],
+                                        'Mean Eye Dose Rate (mRem/hr)':binRecoDoseVal[11],
+                                        '2.5% Eye Dose Rate (mRem/hr)':binRecoDoseVal[5],
+                                        '97.5% Eye Dose Rate (mRem/hr)':binRecoDoseVal[17]})
+
+        dfDoseBeta.to_excel(xlsWriter,'Beta Dose Rate', columns=['Min Energy (keV)',
+                                                                'Max Energy (keV)',
+                                                                'Mean Body Dose Rate (mRem/hr)',
+                                                                '2.5% Body Dose Rate (mRem/hr)',
+                                                                '97.5% Body Dose Rate (mRem/hr)',
+                                                                'Mean Skin Dose Rate (mRem/hr)',
+                                                                '2.5% Skin Dose Rate (mRem/hr)',
+                                                                '97.5% Skin Dose Rate (mRem/hr)',
+                                                                'Mean Eye Dose Rate (mRem/hr)',
+                                                                '2.5% Eye Dose Rate (mRem/hr)',
+                                                                '97.5% Eye Dose Rate (mRem/hr)',])
+
+        dfDoseGamma.to_excel(xlsWriter,'Gamma Dose Rate', columns=['Min Energy (keV)',
+                                                                'Max Energy (keV)',
+                                                                'Mean Body Dose Rate (mRem/hr)',
+                                                                '2.5% Body Dose Rate (mRem/hr)',
+                                                                '97.5% Body Dose Rate (mRem/hr)',
+                                                                'Mean Skin Dose Rate (mRem/hr)',
+                                                                '2.5% Skin Dose Rate (mRem/hr)',
+                                                                '97.5% Skin Dose Rate (mRem/hr)',
+                                                                'Mean Eye Dose Rate (mRem/hr)',
+                                                                '2.5% Eye Dose Rate (mRem/hr)',
+                                                                '97.5% Eye Dose Rate (mRem/hr)',])
+        
+        xlsWriter.save()
 
     def asMat(self, x):
         '''
