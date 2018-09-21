@@ -442,7 +442,9 @@ class PyMBSD(object):
         figFluence.tight_layout()
 
         # Save the figure 
-        plt.savefig(fName, bbox_inches="tight")
+        plt.savefig(fName + '.pdf', bbox_inches="tight")
+        plt.savefig(fName + '.png', bbox_inches="tight")
+        plt.savefig(fName + '.jpg', bbox_inches="tight")
         print '\nUnfolded fluence rate plots saved to: ' 
         print fName
 
@@ -450,8 +452,8 @@ class PyMBSD(object):
         plt.close(figFluence)
 
         # Export the spectra to a ROOT file
-        print fName.split('.pdf')[-2] + '.xlsx'
-        xlsWriter = pandas.ExcelWriter(fName.split('.pdf')[-2] + '.xlsx')
+        print fName + '.xlsx'
+        xlsWriter = pandas.ExcelWriter(fName + '.xlsx')
 
         dfFluenceBeta = pandas.DataFrame({'Min Energy (keV)':self.ResponseBetaPlastic[1][0][:-1],
                                        'Max Energy (keV)':self.ResponseBetaPlastic[1][0][1:],
@@ -683,7 +685,7 @@ class PyMBSD(object):
         plt.close(figFolded)
 
         
-    def plotUnfoldedDoseSpectrum(self, fName='UnfoldedDoseSpectrum.pdf'):
+    def plotUnfoldedDoseSpectrum(self, fName='UnfoldedDoseSpectrum'):
         '''
         Function to plot the reconstructed dose spectrum after performing multidimensional Bayesian unfolding
         NOTE: This function is to be used when multiple response matrices are used in the unfolding.
@@ -716,12 +718,12 @@ class PyMBSD(object):
                                    unfoldedBCIGamma[:,0]*self.coeffGammaWB[0]*0.36,              # Gamma WB Dose 2.5% HPD (in mRem/hr)
                                    unfoldedBCIGamma[:,0]*self.coeffGammaSkin[0]*0.36,            # Gamma Skin Dose 2.5% HPD (in mRad/hr)
                                    unfoldedBCIGamma[:,0]*self.coeffGammaEye[0]*0.36,             # Gamma Eye Dose 2.5% HPD (in mRad/hr)
-                                   np.mean(self.trace['PhiBeta'],0)*self.coeffBetaWB[0]*0.36,    # Beta WB Dose Mean (in mRem/hr)
-                                   np.mean(self.trace['PhiBeta'],0)*self.coeffBetaSkin[0]*0.36,  # Beta Skin Dose Mean (in mRad/hr)
-                                   np.mean(self.trace['PhiBeta'],0)*self.coeffBetaEye[0]*0.36,   # Beta Eye Dose Mean (in mRad/hr)
-                                   np.mean(self.trace['PhiGamma'],0)*self.coeffGammaWB[0]*0.36,  # Gamma WB Dose Mean (in mRem/hr)
-                                   np.mean(self.trace['PhiGamma'],0)*self.coeffGammaSkin[0]*0.36,# Gamma Skin Dose Mean (in mRad/hr)
-                                   np.mean(self.trace['PhiGamma'],0)*self.coeffGammaEye[0]*0.36, # Gamma Eye Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaWB[0]*0.36,0),    # Beta WB Dose Mean (in mRem/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaSkin[0]*0.36,0),  # Beta Skin Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaEye[0]*0.36,0),   # Beta Eye Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaWB[0]*0.36,0),  # Gamma WB Dose Mean (in mRem/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaSkin[0]*0.36,0),# Gamma Skin Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaEye[0]*0.36,0), # Gamma Eye Dose Mean (in mRad/hr)
                                    unfoldedBCIBeta[:,1]*self.coeffBetaWB[0]*0.36,                # Beta WB Dose 97.5% HPD (in mRem/hr)
                                    unfoldedBCIBeta[:,1]*self.coeffBetaSkin[0]*0.36,              # Beta Skin Dose 97.5% HPD (in mRad/hr)
                                    unfoldedBCIBeta[:,1]*self.coeffBetaEye[0]*0.36,               # Beta Eye Dose 97.5% HPD (in mRad/hr)
@@ -982,15 +984,17 @@ class PyMBSD(object):
         figDose.tight_layout()
 
         # Save the figure 
-        plt.savefig(fName, bbox_inches="tight")
+        plt.savefig(fName + '.pdf', bbox_inches="tight")
+        plt.savefig(fName + '.png', bbox_inches="tight")
+        plt.savefig(fName + '.jpg', bbox_inches="tight")
         print '\nUnfolded dose rate plots saved to: \n' + fName
 
         # Show the figure
         plt.close(figDose)
 
         # Export the spectra to a ROOT file
-        print fName.split('.pdf')[-2] + '.xlsx'
-        xlsWriter = pandas.ExcelWriter(fName.split('.pdf')[-2] + '.xlsx')
+        print fName + '.xlsx'
+        xlsWriter = pandas.ExcelWriter(fName+ '.xlsx')
 
         dfDoseBeta = pandas.DataFrame({'Min Energy (keV)':self.ResponseBetaPlastic[1][0][:-1],
                                        'Max Energy (keV)':self.ResponseBetaPlastic[1][0][1:],
@@ -1041,6 +1045,63 @@ class PyMBSD(object):
                                                                 '97.5% Eye Dose Rate (mRem/hr)',])
         
         xlsWriter.save()
+
+    def plotUnfoldedDoseHistogram(self, fName='UnfoldedDoseHistogram.pdf'):
+        '''
+        Function to plot the reconstructed dose histgram after performing multidimensional Bayesian unfolding
+        NOTE: This function is to be used when multiple response matrices are used in the unfolding.
+        '''
+
+        # Create a figure to plot the histogram
+        figDose, axDose = plt.subplots(1,2, figsize=(fig_size[0]*2,fig_size[1]), squeeze=False)
+
+        doseBeta = self.trace['PhiBeta']*self.coeffBetaSkin[0]*0.36
+        doseGamma = self.trace['PhiGamma']*self.coeffGammaSkin[0]*0.36
+
+        # Histogram
+        edgeBeta = np.logspace(np.log10(np.min(doseBeta)),np.log10(np.max(doseBeta)), 30)
+        edgeGamma = np.logspace(np.log10(np.min(doseGamma)),np.log10(np.max(doseGamma)), 30)
+        binBeta = np.histogram(doseBeta, edgeBeta, density=False)[0]
+        binGamma = np.histogram(doseGamma, edgeGamma, density=False)[0]
+
+        # Plot the data histogram
+        axDose[0][0].plot(sorted(np.concatenate((edgeBeta[1:],edgeBeta[:-1]))), 
+                            np.repeat(binBeta,2),
+                            lw=2., 
+                            color='black', 
+                            linestyle="-", 
+                            drawstyle='steps')
+
+        axDose[0][0].axvline(np.average(edgeBeta[:-1], weights=binBeta),c='r')
+        
+        axDose[0][1].plot(sorted(np.concatenate((edgeGamma[1:],edgeGamma[:-1]))), 
+                            np.repeat(binGamma,2),
+                            lw=2., 
+                            color='black', 
+                            linestyle="-", 
+                            drawstyle='steps')
+
+        axDose[0][1].axvline(np.average(edgeGamma[:-1], weights=binGamma),c='r')
+
+        axDose[0][0].set_xlabel('Dose Rate (mRem/hr)')
+        axDose[0][0].set_ylabel('Probability Density')
+        axDose[0][0].set_xscale('log')
+        axDose[0][0].set_yscale('log')
+
+        axDose[0][1].set_xlabel('Dose Rate (mRem/hr)')
+        axDose[0][1].set_ylabel('Probability Density')
+        axDose[0][1].set_xscale('log')
+        axDose[0][1].set_yscale('log')
+        
+         # Fine-tune figure 
+        figDose.tight_layout()
+
+        # Save the figure 
+        plt.savefig(fName, bbox_inches="tight")
+        print '\nUnfolded dose rate histogram saved to: \n' + fName
+
+        # Show the figure
+        plt.close(figDose)
 
     def asMat(self, x):
         '''
@@ -1120,9 +1181,9 @@ class PyMBSD(object):
             GFGammaLaBr3 = np.sum(self.ResponseGammaLaBr3[0], axis=1)
 
             SFBeta = GFBetaPlastic/np.power(GFBetaPlastic + GFGammaPlastic, 2)
-            SFBeta[np.isclose(SFBeta, 0)] = np.finfo(np.float64).eps
+            #SFBeta[np.isclose(SFBeta, 0)] = np.finfo(np.float64).eps
             SFGamma = GFGammaLaBr3/np.power(GFBetaLaBr3 + GFGammaLaBr3, 2)
-            SFGamma[np.isclose(SFGamma, 0)] = np.finfo(np.float64).eps
+            #SFGamma[np.isclose(SFGamma, 0)] = np.finfo(np.float64).eps
 
             nCountsPlastic = self.DataPlastic[0]
             nCountsLaBr3 = self.DataLaBr3[0]
@@ -1152,7 +1213,7 @@ class PyMBSD(object):
             # Define the generative models
             self.MPlastic = theano.tensor.dot(theano.shared(self.asMat(self.ResponseBetaPlastic[0].T)), self.PhiBeta) + theano.tensor.dot(theano.shared(self.asMat(self.ResponseGammaPlastic[0].T)), self.PhiGamma)
             self.MLaBr3 = theano.tensor.dot(theano.shared(self.asMat(self.ResponseBetaLaBr3[0].T)), self.PhiBeta) + theano.tensor.dot(theano.shared(self.asMat(self.ResponseGammaLaBr3[0].T)), self.PhiGamma)
-            
+
             # Define the posterior probability function (PPF)
             self.PPFPlastic = pm.Poisson('PPF_Plastic', 
                                     mu = self.MPlastic,
@@ -1363,7 +1424,7 @@ myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'),
 # Run Inference
 if args.SamplingAlgorithm == 'MH':
     # Run Metropolis Hastings sampling algorithm
-    myMBSD.sampleMH(N=100000,B=100000)
+    myMBSD.sampleMH(N=1000000,B=1000000)
     myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_MH.pdf')
     myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_MH.pdf')
     myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_MH.pdf')
@@ -1371,8 +1432,9 @@ elif args.SamplingAlgorithm == 'ADVI':
     # Run Variational Inference sampling algorithm
     myMBSD.sampleADVI()
     myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_ADVI.pdf')
-    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_ADVI.pdf')
-    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_ADVI.pdf')
+    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_ADVI')
+    myMBSD.plotUnfoldedDoseHistogram(fName = fOutputFilename + '_Hist_Dose_ADVI.pdf')
+    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_ADVI')
 elif args.SamplingAlgorithm == 'NUTS':
     # Run the No-U-Turn sampling algorithm
     myMBSD.sampleNUTS(100000,100000)
