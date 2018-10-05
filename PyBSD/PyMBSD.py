@@ -241,6 +241,83 @@ class PyMBSD(object):
         # Close the figure
         plt.close(figResp)
     
+    def plotGeometricFactor(self,  fName='GeometricFactor.jpg'):
+        '''
+        Function to plot the geometric factor (aka. integrated response matrix) for each detector
+        '''
+        # Response Limits
+        rLimLow = 1E-2
+        rLimUp = 1E2
+
+        # Create a figure to plot the spectrum
+        figGF = plt.figure(1, figsize=(fig_size[0]*1.3,fig_size[1]*1.3))
+
+        axGF = Grid(figGF, 
+                    111,
+                    nrows_ncols=(1, 2),
+                    axes_pad=(0.35, 0.35),
+                    add_all=True,
+                    label_mode = 'L')
+
+        # Plot the data spectrum
+        axGF[0].plot(sorted(np.concatenate((self.ResponseGammaPlastic[1][0][:-1], self.ResponseGammaPlastic[1][0][1:]))), 
+                     np.repeat(self.ResponseGammaPlastic[0].sum(axis=1), 2),
+                     lw=1.25, 
+                     color='red', 
+                     linestyle="-",
+                     drawstyle='steps',
+                     label='Eljen Plastic Detector')
+
+        axGF[0].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][0][:-1], self.ResponseGammaLaBr3[1][0][1:]))), 
+                     np.repeat(self.ResponseGammaLaBr3[0].sum(axis=1), 2),
+                     lw=1.25, 
+                     color='blue', 
+                     linestyle="-",
+                     drawstyle='steps',
+                     label='Saint Gobain LaBr3 Detector')
+
+        axGF[1].plot(sorted(np.concatenate((self.ResponseBetaPlastic[1][0][:-1], self.ResponseBetaPlastic[1][0][1:]))), 
+                     np.repeat(self.ResponseBetaPlastic[0].sum(axis=1), 2),
+                     lw=1.25, 
+                     color='red', 
+                     linestyle="-",
+                     drawstyle='steps',
+                     label='Eljen Plastic Detector')
+
+        axGF[1].plot(sorted(np.concatenate((self.ResponseBetaLaBr3[1][0][:-1], self.ResponseBetaLaBr3[1][0][1:]))), 
+                     np.repeat(self.ResponseBetaLaBr3[0].sum(axis=1), 2),
+                     lw=1.25, 
+                     color='blue', 
+                     linestyle="-",
+                     drawstyle='steps',
+                     label='Saint Gobain LaBr3 Detector')
+        
+        axGF[0].set_xlabel('True Gamma-ray Energy (keV)')
+        axGF[0].set_ylabel('Geometric Factor (cm$^2$)')
+        axGF[0].set_xlim(min(self.ResponseGammaPlastic[1][0]),max(self.ResponseGammaPlastic[1][0]))
+        axGF[0].set_ylim(rLimLow, rLimUp)
+        axGF[0].set_xscale('log')
+        axGF[0].set_yscale('log')
+        axGF[0].legend()
+
+        axGF[1].set_xlabel('True Beta-ray Energy (keV)')
+        axGF[1].set_ylabel('Geometric Factor (cm$^2$)')
+        axGF[1].set_xlim(min(self.ResponseBetaPlastic[1][0]),max(self.ResponseBetaPlastic[1][0]))
+        axGF[1].set_ylim(rLimLow, rLimUp)
+        axGF[1].set_xscale('log')
+        axGF[1].set_yscale('log')
+        axGF[1].legend()
+        
+        # Fine-tune figure 
+        figGF.tight_layout()
+
+        # Save the figure 
+        plt.savefig(fName, bbox_inches="tight")
+        print '\nGeometric factor plot saved to: \n' + fName
+
+        # Show the figure
+        plt.close(figGF)
+    
     def loadDoseCoeffGamma(self, fName=''):
         '''
         Function to load the ICRP 116 gamma-ray dose coefficients for the whole body, skin, and lens of the eye.
@@ -276,6 +353,8 @@ class PyMBSD(object):
                                                      df_ICRP116_Photon_EyeLens['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Photon_EyeLens['ISO (pGy cm2)'].values*coeffScalingFactor),
                                       self.ResponseBetaPlastic[1][0]])
+
+        #print self.coeffGammaWB
     
     def loadDoseCoeffBeta(self, fName=''):
         '''
@@ -311,6 +390,37 @@ class PyMBSD(object):
                                                      df_ICRP116_Beta_EyeLens['Energy (MeV)'].values*1E3, 
                                                      df_ICRP116_Beta_EyeLens['ISO (pGy cm2)'].values*coeffScalingFactor),
                                       self.ResponseBetaPlastic[1][0]])
+
+    def loadOperationalDoseCoeffGamma(self, fName=''):
+        '''
+        Function to load the operational dose coefficients for the whole body and skin.
+        '''
+
+        # Import operational dose coefficients from files
+        df_AirKerma_Photon = pandas.read_excel(fName, sheet_name = 'Air Kerma Coefficients')
+        df_PersonalDose_Photon_WB = pandas.read_excel(fName, sheet_name = 'Air Kerma to Personal Dose (ISO)')
+
+        # Interpolate the coefficients into the true log energy bins
+        def logInterpCoeff(coeffBins, coeffX, coeffY):
+            midBin = [np.log10(coeffBins[i]*coeffBins[i + 1])/2 for i in range(0, len(coeffBins)-1)]
+            return np.nan_to_num(np.power(10, interpolate.interp1d(np.log10(coeffX), np.log10(coeffY), kind='linear')(midBin)))
+
+        # Scaling factor to convert the magnitude of the dose coefficients
+        coeffScalingFactor = 1E-12*1E9 # pSv/pGy to nSv/nGy
+
+        # Load the dose coefficients into self object
+        # NOTE: Energy scaling from MeV to keV
+        self.Hp10DoseCoeffGammaWB = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
+                                                            df_AirKerma_Photon['Photon energy E (MeV)'].values*1E3, 
+                                                            df_AirKerma_Photon['Air kerma coefficient (pGy cm2)'].values*coeffScalingFactor),
+                                                  self.ResponseBetaPlastic[1][0]])
+
+        self.Hp10DoseCoeffGammaWB[0] *= np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
+                                                            df_PersonalDose_Photon_WB['Photon energy E (MeV)'].values*1E3, 
+                                                            df_PersonalDose_Photon_WB['Personal dose coefficient (Sv/Gy)'].values),
+                                                  self.ResponseBetaPlastic[1][0]])[0]
+
+        #print self.Hp10DoseCoeffGammaWB
 
     def plotUnfoldedFluenceSpectrum(self, fName='UnfoldedFluenceSpectrum.pdf'):
         '''
@@ -694,11 +804,11 @@ class PyMBSD(object):
         # Calculate the true dose 
         # NOTE: The 0.36 is added to convert from nRem/s to mRem/hr
         binTruthDoseVal = np.array([(self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaWB[0]*0.36,                  # Beta WB Dose Mean
-                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaSkin[0]*0.36,                 # Beta Skin Dose Mean 
-                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaEye[0]*0.36,                  # Beta Eye Dose Mean
-                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaWB[0]*0.36,                 # Gamma WB Dose Mean
-                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaSkin[0]*0.36,               # Gamma Skin Dose Mean
-                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaEye[0]*0.36])               # Gamma Eye Dose Mean
+                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaSkin[0]*0.36,                # Beta Skin Dose Mean 
+                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaEye[0]*0.36,                 # Beta Eye Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaWB[0]*0.36,               # Gamma WB Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaSkin[0]*0.36,             # Gamma Skin Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaEye[0]*0.36])             # Gamma Eye Dose Mean
 
         # Calculate and plot the 95% Bayesian credible regions for the unfolded spectrum
         # NOTE: The 0.36 is added to convert from nRem/s to mRem/hr
@@ -940,15 +1050,20 @@ class PyMBSD(object):
         tblStats2 = axDose[2][1].table( cellText = (
                                         ('Body',
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[3])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[9]), np.sum(binRecoDoseVal[3]), np.sum(binRecoDoseVal[15]))),
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[9]), np.sum(binRecoDoseVal[3]), np.sum(binRecoDoseVal[15])),
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(np.mean(self.trace['PhiGamma']*self.Hp10DoseCoeffGammaWB[0]*0.36,0)), 
+                                                                                      np.sum(unfoldedBCIGamma[:,0]*self.Hp10DoseCoeffGammaWB[0]*0.36,0), 
+                                                                                      np.sum(unfoldedBCIGamma[:,1]*self.Hp10DoseCoeffGammaWB[0]*0.36,0))),
                                         ('Skin',
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[4])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[10]), np.sum(binRecoDoseVal[4]), np.sum(binRecoDoseVal[16]))),
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[10]), np.sum(binRecoDoseVal[4]), np.sum(binRecoDoseVal[16])),
+                                        'N/A'),
                                         ('Eye',
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[5])) if self.TruthGamma is not None else 'Unknown',
-                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[11]), np.sum(binRecoDoseVal[5]), np.sum(binRecoDoseVal[17])))),
+                                        '{:0.2E} ({:0.2E} to {:0.2E}) mRem/hr'.format(np.sum(binRecoDoseVal[11]), np.sum(binRecoDoseVal[5]), np.sum(binRecoDoseVal[17])),
+                                        'N/A')),
                                         cellLoc = 'center',
-                                        colLabels = ['Organ', 'True Dose', 'Estimated Dose (95% BCI)'],
+                                        colLabels = ['Organ', 'True Dose', 'Estimated Dose (95% BCI)', 'Hp Dose (95% BCI)'],
                                         colLoc = 'center',
                                         loc = 'bottom',
                                         bbox = [0, -0.57, 1, .35])
@@ -1395,6 +1510,7 @@ fOutputFilename = args.OutputFilename if args.OutputFilename else ''
 # Dose Coefficients
 fDoseCoeffGamma  = './Dose Coefficients/ICRP116_Photon_DoseConversionCoefficients.xlsx'
 fDoseCoeffBeta  = './Dose Coefficients/ICRP116_Electron_DoseConversionCoefficients.xlsx'
+fOperationalDoseCoeffGamma  = './Dose Coefficients/ICRP116_Photon_PersonalDoseConversionCoefficients.xlsx'
 
 # Initiate the class
 myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (Electron)'),
@@ -1409,10 +1525,14 @@ myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (
 
 # Plot the response matrices
 myMBSD.plotResponse(fName = 'ResponseMatrix.jpg')
+myMBSD.plotGeometricFactor(fName = 'GeometricFactor.jpg')
 
-# Load the dose coefficients (NOTE: Using ICRP 116)
+# Load the absorbed dose coefficients (NOTE: Using ICRP 116)
 myMBSD.loadDoseCoeffGamma(fName = fDoseCoeffGamma)
 myMBSD.loadDoseCoeffBeta(fName = fDoseCoeffBeta)
+
+# Load the operational dose coefficients
+myMBSD.loadOperationalDoseCoeffGamma(fName = fOperationalDoseCoeffGamma)
 
 # Build the model
 myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'), 
@@ -1424,7 +1544,7 @@ myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'),
 # Run Inference
 if args.SamplingAlgorithm == 'MH':
     # Run Metropolis Hastings sampling algorithm
-    myMBSD.sampleMH(N=1000000,B=1000000)
+    myMBSD.sampleMH(N=500000,B=100000)
     myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_MH.pdf')
     myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_MH.pdf')
     myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_MH.pdf')
