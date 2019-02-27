@@ -40,10 +40,6 @@ from matplotlib import rcParams
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1 import Grid, AxesGrid
 
-# Python garbabe collector
-import gc
-
-
 ##########################################################################################
 # Setting rcParams for publication quality graphs
 fig_size =  np.array([7.3,4.2])*1.5
