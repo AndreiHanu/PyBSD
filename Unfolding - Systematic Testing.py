@@ -1,12 +1,6 @@
-
-# coding: utf-8
-
-# # Systematic testing of Bayesian unfolding using simulated spectra from LaBr3, Plastic, and PIPS detector 
+# Systematic testing of Bayesian unfolding using simulated spectra from LaBr3, Plastic, and PIPS detector 
 # 
 # Created by Andrei R. Hanu
-
-# In[1]:
-
 
 # Libraries to handle ROOT files
 import ROOT
@@ -399,7 +393,7 @@ plotMeasuredSpectrum(meas_vec_det3, isotope + ' - ' + det3 + ' - Measured Spectr
 # - **model_det1** - this model uses **only** the response matrix and measured spectra from Detector 1 (det1)
 
 DRAWS = 10000
-TUNE = 10000
+TUNE = 20000
 
 def plotReconstructedSpectrum(trace, filename = 'Unfolded Fluence Spectrum.jpg'):
     # Create a Pandas dataframe of summary information from the sampling
@@ -666,30 +660,28 @@ with pm.Model() as model_det1_det2:
     gf_det2_gam[np.isclose(gf_det2_gam, 0)] = np.min(gf_det2_gam[np.nonzero(gf_det2_gam)])
 
     # Find the ROIs where each detector has the highest Geometric Factor
-    roi_det1_e = np.intersect1d(np.where(gf_det1_e >= gf_det2_e), np.where(gf_det1_e >= gf_det3_e))
-    roi_det1_gam = np.intersect1d(np.where(gf_det1_gam >= gf_det2_gam), np.where(gf_det1_gam >= gf_det3_gam))
-    roi_det2_e = np.intersect1d(np.where(gf_det2_e >= gf_det1_e), np.where(gf_det2_e >= gf_det3_e))
-    roi_det2_gam = np.intersect1d(np.where(gf_det2_gam >= gf_det1_gam), np.where(gf_det2_gam >= gf_det3_gam))
+    roi_det1_e = np.intersect1d(np.where(gf_det1_e >= gf_det2_e), np.where(gf_det1_e >= gf_det1_e))
+    roi_det1_gam = np.intersect1d(np.where(gf_det1_gam >= gf_det2_gam), np.where(gf_det1_gam >= gf_det1_gam))
+    roi_det2_e = np.intersect1d(np.where(gf_det2_e >= gf_det1_e), np.where(gf_det2_e >= gf_det1_e))
+    roi_det2_gam = np.intersect1d(np.where(gf_det2_gam >= gf_det1_gam), np.where(gf_det2_gam >= gf_det1_gam))
 
-    print(roi_det1_e.min(),roi_det1_e.max())
-    print(roi_det2_e.min(),roi_det2_e.max())
+    if roi_det1_e.size != 0: print 'Detector 1 ROI bins for beta-rays: ',roi_det1_e.min(),' to ',roi_det1_e.max() 
+    if roi_det2_e.size != 0: print 'Detector 2 ROI bins for beta-rays: ',roi_det2_e.min(),' to ',roi_det2_e.max() 
 
-    print(roi_det1_gam.min(),roi_det1_gam.max())
-    print(roi_det2_gam.min(),roi_det2_gam.max())
+    if roi_det1_gam.size != 0: print 'Detector 1 ROI bins for gamma-rays: ',roi_det1_gam.min(),' to ',roi_det1_gam.max() 
+    if roi_det2_gam.size != 0: print 'Detector 2 ROI bins for gamma-rays: ',roi_det2_gam.min(),' to ',roi_det2_gam.max()
 
     lb_phi_e = np.zeros(rspns_mat_det3_e[1][0].size - 1)
 
     ub_phi_e = np.ones(rspns_mat_det3_e[1][0].size - 1)
-    ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
-    ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
+    if roi_det1_e.size != 0: ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
+    if roi_det2_e.size != 0: ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
 
     lb_phi_gam = np.zeros(rspns_mat_det3_gam[1][0].size - 1)
     
     ub_phi_gam = np.ones(rspns_mat_det3_gam[1][0].size - 1)
-    ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
-    ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
-
-    print ub_phi_e
+    if roi_det1_gam.size != 0: ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
+    if roi_det2_gam.size != 0: ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
 
     # Define the prior probability densities
     phi_e = pm.Uniform('phi_e', lower = lb_phi_e, upper = ub_phi_e, shape = (ub_phi_e.size))
@@ -742,25 +734,23 @@ with pm.Model() as model_det1_det3:
     roi_det3_e = np.intersect1d(np.where(gf_det3_e >= gf_det1_e), np.where(gf_det3_e >= gf_det1_e))
     roi_det3_gam = np.intersect1d(np.where(gf_det3_gam >= gf_det1_gam), np.where(gf_det3_gam >= gf_det1_gam))
 
-    print(roi_det1_e.min(),roi_det1_e.max())
-    print(roi_det3_e.min(),roi_det3_e.max())
+    if roi_det1_e.size != 0: print 'Detector 1 ROI bins for beta-rays: ',roi_det1_e.min(),' to ',roi_det1_e.max() 
+    if roi_det3_e.size != 0: print 'Detector 3 ROI bins for beta-rays: ',roi_det3_e.min(),' to ',roi_det3_e.max() 
 
-    print(roi_det1_gam.min(),roi_det1_gam.max())
-    print(roi_det3_gam.min(),roi_det3_gam.max())
+    if roi_det1_gam.size != 0: print 'Detector 1 ROI bins for gamma-rays: ',roi_det1_gam.min(),' to ',roi_det1_gam.max() 
+    if roi_det3_gam.size != 0: print 'Detector 3 ROI bins for gamma-rays: ',roi_det3_gam.min(),' to ',roi_det3_gam.max()
 
     lb_phi_e = np.zeros(rspns_mat_det3_e[1][0].size - 1)
 
     ub_phi_e = np.ones(rspns_mat_det3_e[1][0].size - 1)
-    ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
-    ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
+    if roi_det1_e.size != 0: ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
+    if roi_det3_e.size != 0: ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
 
     lb_phi_gam = np.zeros(rspns_mat_det3_gam[1][0].size - 1)
     
     ub_phi_gam = np.ones(rspns_mat_det3_gam[1][0].size - 1)
-    ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
-    ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max() + 1]
-
-    print ub_phi_e
+    if roi_det1_gam.size != 0: ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
+    if roi_det3_gam.size != 0: ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max() + 1]
 
     # Define the prior probability densities
     phi_e = pm.Uniform('phi_e', lower = lb_phi_e, upper = ub_phi_e, shape = (ub_phi_e.size))
@@ -813,25 +803,23 @@ with pm.Model() as model_det2_det3:
     roi_det3_e = np.intersect1d(np.where(gf_det3_e >= gf_det2_e), np.where(gf_det3_e >= gf_det2_e))
     roi_det3_gam = np.intersect1d(np.where(gf_det3_gam >= gf_det2_gam), np.where(gf_det3_gam >= gf_det2_gam))
 
-    print(roi_det2_e.min(),roi_det2_e.max())
-    print(roi_det3_e.min(),roi_det3_e.max())
+    if roi_det2_e.size != 0: print 'Detector 2 ROI bins for beta-rays: ',roi_det2_e.min(),' to ',roi_det2_e.max() 
+    if roi_det3_e.size != 0: print 'Detector 3 ROI bins for beta-rays: ',roi_det3_e.min(),' to ',roi_det3_e.max() 
 
-    print(roi_det2_gam.min(),roi_det2_gam.max())
-    #print(roi_det3_gam.min(),roi_det3_gam.max())
+    if roi_det2_gam.size != 0: print 'Detector 2 ROI bins for gamma-rays: ',roi_det2_gam.min(),' to ',roi_det2_gam.max() 
+    if roi_det3_gam.size != 0: print 'Detector 3 ROI bins for gamma-rays: ',roi_det3_gam.min(),' to ',roi_det3_gam.max()
 
     lb_phi_e = np.zeros(rspns_mat_det3_e[1][0].size - 1)
 
     ub_phi_e = np.ones(rspns_mat_det3_e[1][0].size - 1)
-    ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
-    ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
+    if roi_det2_e.size != 0: ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
+    if roi_det3_e.size != 0: ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
 
     lb_phi_gam = np.zeros(rspns_mat_det3_gam[1][0].size - 1)
     
     ub_phi_gam = np.ones(rspns_mat_det3_gam[1][0].size - 1)
-    ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
-    #ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max()] *= np.sum(meas_vec_det3[0][roi_det3_gam.min():roi_det3_gam.max()])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max()]
-
-    print ub_phi_e
+    if roi_det2_gam.size != 0: ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
+    if roi_det3_gam.size != 0: ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max() + 1]
 
     # Define the prior probability densities
     phi_e = pm.Uniform('phi_e', lower = lb_phi_e, upper = ub_phi_e, shape = (ub_phi_e.size))
@@ -890,29 +878,27 @@ with pm.Model() as model_det1_det2_det3:
     roi_det3_e = np.intersect1d(np.where(gf_det3_e >= gf_det1_e), np.where(gf_det3_e >= gf_det2_e))
     roi_det3_gam = np.intersect1d(np.where(gf_det3_gam >= gf_det1_gam), np.where(gf_det3_gam >= gf_det2_gam))
 
-    print(roi_det1_e.min(),roi_det1_e.max())
-    print(roi_det2_e.min(),roi_det2_e.max())
-    print(roi_det3_e.min(),roi_det3_e.max())
+    if roi_det1_e.size != 0: print 'Detector 1 ROI bins for beta-rays: ',roi_det1_e.min(),' to ',roi_det1_e.max() 
+    if roi_det2_e.size != 0: print 'Detector 2 ROI bins for beta-rays: ',roi_det2_e.min(),' to ',roi_det2_e.max() 
+    if roi_det3_e.size != 0: print 'Detector 3 ROI bins for beta-rays: ',roi_det3_e.min(),' to ',roi_det3_e.max() 
 
-    print(roi_det1_gam.min(),roi_det1_gam.max())
-    print(roi_det2_gam.min(),roi_det2_gam.max())
-    #print(roi_det3_gam.min(),roi_det3_gam.max())
+    if roi_det1_gam.size != 0: print 'Detector 1 ROI bins for gamma-rays: ',roi_det1_gam.min(),' to ',roi_det1_gam.max() 
+    if roi_det2_gam.size != 0: print 'Detector 2 ROI bins for gamma-rays: ',roi_det2_gam.min(),' to ',roi_det2_gam.max() 
+    if roi_det3_gam.size != 0: print 'Detector 3 ROI bins for gamma-rays: ',roi_det3_gam.min(),' to ',roi_det3_gam.max()
 
     lb_phi_e = np.zeros(rspns_mat_det3_e[1][0].size - 1)
 
     ub_phi_e = np.ones(rspns_mat_det3_e[1][0].size - 1)
-    ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
-    ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
-    ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
+    if roi_det1_e.size != 0: ub_phi_e[roi_det1_e.min():roi_det1_e.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_e[roi_det1_e.min():roi_det1_e.max() + 1]
+    if roi_det2_e.size != 0: ub_phi_e[roi_det2_e.min():roi_det2_e.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_e[roi_det2_e.min():roi_det2_e.max() + 1]
+    if roi_det3_e.size != 0: ub_phi_e[roi_det3_e.min():roi_det3_e.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_e[roi_det3_e.min():roi_det3_e.max() + 1]
 
     lb_phi_gam = np.zeros(rspns_mat_det3_gam[1][0].size - 1)
     
     ub_phi_gam = np.ones(rspns_mat_det3_gam[1][0].size - 1)
-    ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
-    ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
-    #ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max()] *= np.sum(meas_vec_det3[0][roi_det3_gam.min():roi_det3_gam.max()])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max()]
-
-    print ub_phi_e
+    if roi_det1_gam.size != 0: ub_phi_gam[roi_det1_gam.min():roi_det1_gam.max() + 1] *= np.sum(meas_vec_det1[0])/gf_det1_gam[roi_det1_gam.min():roi_det1_gam.max() + 1]
+    if roi_det2_gam.size != 0: ub_phi_gam[roi_det2_gam.min():roi_det2_gam.max() + 1] *= np.sum(meas_vec_det2[0])/gf_det2_gam[roi_det2_gam.min():roi_det2_gam.max() + 1]
+    if roi_det3_gam.size != 0: ub_phi_gam[roi_det3_gam.min():roi_det3_gam.max() + 1] *= np.sum(meas_vec_det3[0])/gf_det3_gam[roi_det3_gam.min():roi_det3_gam.max() + 1]
 
     # Define the prior probability densities
     phi_e = pm.Uniform('phi_e', lower = lb_phi_e, upper = ub_phi_e, shape = (ub_phi_e.size))
