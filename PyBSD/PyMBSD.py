@@ -349,6 +349,7 @@ class PyMBSD(object):
         df_Electron_Hp10 = pandas.read_excel(fName, sheet_name = 'Electron (phi-to-Hp(10))')
         df_Electron_D3 = pandas.read_excel(fName, sheet_name = 'Electron (phi-to-D(3))')
         df_Electron_Hp0p07 = pandas.read_excel(fName, sheet_name = 'Electron (phi-to-Hp(0.07))')
+        df_Photon_PbAtten = pandas.read_excel(fName, sheet_name = 'Pb Attenuation')
 
         # Interpolate the coefficients into the true log energy bins
         def logInterpCoeff(coeffBins, coeffX, coeffY):
@@ -363,6 +364,11 @@ class PyMBSD(object):
         self.coeffGammaWB = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_AirKerma_Photon['Energy (MeV)'].values*1E3, 
                                                      df_AirKerma_Photon['Air Kerma Coefficient (pGy cm2)'].values*coeffScalingFactor),
+                                      self.ResponseBetaPlastic[1][0]])
+
+        self.coeffAttenPb = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
+                                                     df_Photon_PbAtten['Energy (MeV)'].values*1E3, 
+                                                     df_Photon_PbAtten['Atten Coeff (cm2/g)'].values),
                                       self.ResponseBetaPlastic[1][0]])
 
         self.coeffGammaWB[0] *= np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
@@ -994,6 +1000,13 @@ class PyMBSD(object):
                                         color='blue', 
                                         linestyle="-", 
                                         drawstyle='steps')
+
+        pMeanGammaDoseWB_Atten, = axDose[2][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
+                                        np.repeat(binRecoDoseVal[9]*np.exp(-1*self.coeffAttenPb[0]*11.34*0.5/10), 2),
+                                        lw=1.25, 
+                                        color='orange', 
+                                        linestyle="-", 
+                                        drawstyle='steps')
         
         pMeanGammaDoseSkin, = axDose[2][1].plot(sorted(np.concatenate((self.ResponseGammaLaBr3[1][1][1:],self.ResponseGammaLaBr3[1][1][:-1]))), 
                                         np.repeat(binRecoDoseVal[10], 2),
@@ -1010,6 +1023,7 @@ class PyMBSD(object):
                                         drawstyle='steps')
 
         # Plot Statistics
+        '''
         tblStats1 = axDose[2][0].table( cellText = (
                                         ('Body',
                                         '{:0.2E} mRem/hr'.format(np.sum(binTruthDoseVal[0])) if self.TruthBeta is not None else 'Unknown',
@@ -1041,10 +1055,17 @@ class PyMBSD(object):
                                         colLoc = 'center',
                                         loc = 'bottom',
                                         bbox = [0, -0.57, 1, .35])
+        '''
 
-        print('WB-to-Eye Lens Ratio: {:0.2E} ({:0.2E} to {:0.2E})'.format(np.sum(binRecoDoseVal[9])/np.sum(binRecoDoseVal[11]),
-                                                                          np.sum(binRecoDoseVal[3])/np.sum(binRecoDoseVal[5]), 
-                                                                          np.sum(binRecoDoseVal[15])/np.sum(binRecoDoseVal[17])))
+        print('Skin-to-Whole Body Dose Ratio: {:0.2E} ({:0.2E} to {:0.2E})'.format(np.sum(binRecoDoseVal[7] + binRecoDoseVal[10])/np.sum(binRecoDoseVal[6] + binRecoDoseVal[9]),
+                                                                                    np.sum(binRecoDoseVal[1] + binRecoDoseVal[4])/np.sum(binRecoDoseVal[0] + binRecoDoseVal[3]), 
+                                                                                    np.sum(binRecoDoseVal[13] + binRecoDoseVal[16])/np.sum(binRecoDoseVal[12] + binRecoDoseVal[15])))
+
+        print('Eye-to-Whole Body Dose Ratio: {:0.2E} ({:0.2E} to {:0.2E})'.format(np.sum(binRecoDoseVal[8] + binRecoDoseVal[11])/np.sum(binRecoDoseVal[6] + binRecoDoseVal[9]),
+                                                                                    np.sum(binRecoDoseVal[2] + binRecoDoseVal[5])/np.sum(binRecoDoseVal[0] + binRecoDoseVal[3]), 
+                                                                                    np.sum(binRecoDoseVal[14] + binRecoDoseVal[17])/np.sum(binRecoDoseVal[12] + binRecoDoseVal[15])))
+
+        print('Shielding Factor: {:0.2E} '.format(np.sum(binRecoDoseVal[9]*np.exp(-1*self.coeffAttenPb[0]*11.34*0.5/10))/np.sum(binRecoDoseVal[9])))
         
         # Figure Properties
         dnrFluence = maxY/minY      # Limit the dynamic range of the dose spectrum to the same as the fluence spectrum
@@ -1069,8 +1090,8 @@ class PyMBSD(object):
         axDose[2][1].set_yscale('log')
         axDose[2][1].set_xlim(min(self.ResponseGammaLaBr3[1][0]),max(self.ResponseGammaLaBr3[1][0]))
         axDose[2][1].set_ylim(np.power(10, np.ceil(np.log10(minY))), np.power(10, np.ceil(np.log10(maxY))))
-        axDose[2][1].legend([(pBCIGammaDoseWB, pMeanGammaDoseWB), (pBCIGammaDoseSkin, pMeanGammaDoseSkin), (pBCIGammaDoseEye, pMeanGammaDoseEye)],
-                                ['Body (95% BCI)', 'Skin (95% BCI)','Eye (95% BCI)'],
+        axDose[2][1].legend([(pBCIGammaDoseWB, pMeanGammaDoseWB), (pBCIGammaDoseSkin, pMeanGammaDoseSkin), (pBCIGammaDoseEye, pMeanGammaDoseEye), (pMeanGammaDoseWB_Atten)],
+                                ['Body (95% BCI)', 'Skin (95% BCI)','Eye (95% BCI)','Body + 0.5 mm Pb'],
                                 loc='best')
         
          # Fine-tune figure 
@@ -1138,6 +1159,127 @@ class PyMBSD(object):
                                                                 '97.5% Eye Dose Rate (mRem/hr)',])
         
         xlsWriter.save()
+
+    def printUnfoldedDoseSummary(self, fName='UnfoldedDoseSpectrum'):
+        '''
+        Function to print a summary for the beta- and gamma-ray dose rates after performing 
+        multidimensional Bayesian unfolding
+        '''
+
+        # Calculate the true dose 
+        # NOTE: The 0.36 is added to convert from nSv/s to mRem/hr
+        binTruthDoseVal = np.array([(self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaWB[0]*0.36,                  # Beta WB Dose Mean
+                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaSkin[0]*0.36,                # Beta Skin Dose Mean 
+                                    (self.TruthBeta[0] if self.TruthBeta is not None else 0.)*self.coeffBetaEye[0]*0.36,                 # Beta Eye Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaWB[0]*0.36,               # Gamma WB Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaSkin[0]*0.36,             # Gamma Skin Dose Mean
+                                    (self.TruthGamma[0] if self.TruthGamma is not None else 0.)*self.coeffGammaEye[0]*0.36])             # Gamma Eye Dose Mean
+
+        # Calculate and plot the 95% Bayesian credible regions for the unfolded spectrum
+        # NOTE: The 0.36 is added to convert from nSv/s to mRem/hr
+        unfoldedBCIBeta = pm.stats.hpd(self.trace['PhiBeta'], alpha=0.05)
+        unfoldedBCIGamma = pm.stats.hpd(self.trace['PhiGamma'], alpha=0.05)
+
+        binRecoFluenceVal = np.array([unfoldedBCIBeta[:,0],                                      # Beta 2.5% HPD
+                                     unfoldedBCIGamma[:,0],                                      # Gamma 2.5% HPD
+                                     np.mean(self.trace['PhiBeta'],0),                           # Beta Mean
+                                     np.mean(self.trace['PhiGamma'],0),                          # Gamma Mean
+                                     unfoldedBCIBeta[:,1],                                       # Beta 97.5% HPD
+                                     unfoldedBCIGamma[:,1]])                                     # Gamma 97.5% HPD
+        
+        binRecoDoseVal = np.array([unfoldedBCIBeta[:,0]*self.coeffBetaWB[0]*0.36,                # Beta WB Dose 2.5% HPD (in mRem/hr)
+                                   unfoldedBCIBeta[:,0]*self.coeffBetaSkin[0]*0.36,              # Beta Skin Dose 2.5% HPD (in mRad/hr)
+                                   unfoldedBCIBeta[:,0]*self.coeffBetaEye[0]*0.36,               # Beta Eye Dose 2.5% HPD (in mRad/hr)
+                                   unfoldedBCIGamma[:,0]*self.coeffGammaWB[0]*0.36,              # Gamma WB Dose 2.5% HPD (in mRem/hr)
+                                   unfoldedBCIGamma[:,0]*self.coeffGammaSkin[0]*0.36,            # Gamma Skin Dose 2.5% HPD (in mRad/hr)
+                                   unfoldedBCIGamma[:,0]*self.coeffGammaEye[0]*0.36,             # Gamma Eye Dose 2.5% HPD (in mRad/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaWB[0]*0.36,0),    # Beta WB Dose Mean (in mRem/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaSkin[0]*0.36,0),  # Beta Skin Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiBeta']*self.coeffBetaEye[0]*0.36,0),   # Beta Eye Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaWB[0]*0.36,0),  # Gamma WB Dose Mean (in mRem/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaSkin[0]*0.36,0),# Gamma Skin Dose Mean (in mRad/hr)
+                                   np.mean(self.trace['PhiGamma']*self.coeffGammaEye[0]*0.36,0), # Gamma Eye Dose Mean (in mRad/hr)
+                                   unfoldedBCIBeta[:,1]*self.coeffBetaWB[0]*0.36,                # Beta WB Dose 97.5% HPD (in mRem/hr)
+                                   unfoldedBCIBeta[:,1]*self.coeffBetaSkin[0]*0.36,              # Beta Skin Dose 97.5% HPD (in mRad/hr)
+                                   unfoldedBCIBeta[:,1]*self.coeffBetaEye[0]*0.36,               # Beta Eye Dose 97.5% HPD (in mRad/hr)
+                                   unfoldedBCIGamma[:,1]*self.coeffGammaWB[0]*0.36,              # Gamma WB Dose 97.5% HPD (in mRem/hr)
+                                   unfoldedBCIGamma[:,1]*self.coeffGammaSkin[0]*0.36,            # Gamma Skin Dose 97.5% HPD (in mRad/hr)
+                                   unfoldedBCIGamma[:,1]*self.coeffGammaEye[0]*0.36])            # Gamma Eye Dose 97.5% HPD (in mRad/hr))
+
+        # Calculate the beta-ray dose rates and add them to a Pandas dataframe
+        df_Dose = pandas.DataFrame({'Particle Type':'Beta',
+                                    'Min Energy (keV)':np.min(self.ResponseBetaPlastic[1][0]),
+                                    'Max Energy (keV)':np.max(self.ResponseBetaPlastic[1][0]),
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12]),
+                                    'D_eye_mean':np.sum(binRecoDoseVal[8]),
+                                    'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[2]),
+                                    'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[14]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13])},
+                                    index=[0])
+
+        # Calculate the gamma-ray dose rates and add them to a Pandas dataframe
+        df_Dose = df_Dose.append({'Particle Type':'Gamma',
+                                    'Min Energy (keV)':np.min(self.ResponseGammaPlastic[1][0]),
+                                    'Max Energy (keV)':np.max(self.ResponseGammaPlastic[1][0]),
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[9]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[3]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[15]),
+                                    'D_eye_mean':np.sum(binRecoDoseVal[11]),
+                                    'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[5]),
+                                    'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[17]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[10]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[4]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[16])}, ignore_index = True)
+
+        # Calculate the combined dose rates and add them to a Pandas dataframe
+        df_Dose = df_Dose.append({'Particle Type':'Beta + Gamma',
+                                    'Min Energy (keV)':np.minimum(np.min(self.ResponseBetaPlastic[1][0]), np.min(self.ResponseGammaPlastic[1][0])),
+                                    'Max Energy (keV)':np.maximum(np.max(self.ResponseBetaPlastic[1][0]), np.max(self.ResponseGammaPlastic[1][0])),
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6] + binRecoDoseVal[9]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0] + binRecoDoseVal[3]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12] + binRecoDoseVal[15]),
+                                    'D_eye_mean':np.sum(binRecoDoseVal[8] + binRecoDoseVal[11]),
+                                    'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[2] + binRecoDoseVal[5]),
+                                    'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[14] + binRecoDoseVal[17]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7] + binRecoDoseVal[10]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1] + binRecoDoseVal[4]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13] + binRecoDoseVal[16])}, ignore_index = True)
+
+        # Calculate Dose Ratios
+        df_Dose['D_eye_to_Hp(0.07)_mean'] = df_Dose['D_eye_mean'] / df_Dose['Hp(0.07)_mean']
+        df_Dose['D_eye_to_Hp(0.07)_hpd_2.5%'] = df_Dose['D_eye_hpd_97.5%'] / df_Dose['Hp(0.07)_hpd_97.5%']
+        df_Dose['D_eye_to_Hp(0.07)_hpd_97.5%'] = df_Dose['D_eye_hpd_2.5%'] / df_Dose['Hp(0.07)_hpd_2.5%']
+
+        df_Dose['D_eye_to_Hp(10)_mean'] = df_Dose['D_eye_mean'] / df_Dose['Hp(10)_mean']
+        df_Dose['D_eye_to_Hp(10)_hpd_2.5%'] = df_Dose['D_eye_hpd_97.5%'] / df_Dose['Hp(10)_hpd_97.5%']
+        df_Dose['D_eye_to_Hp(10)_hpd_97.5%'] = df_Dose['D_eye_hpd_2.5%'] / df_Dose['Hp(10)_hpd_2.5%']
+
+
+        df_Dose['Hp(0.07)_to_Hp(10)_mean'] = df_Dose['Hp(0.07)_mean'] / df_Dose['Hp(10)_mean']
+        df_Dose['Hp(0.07)_to_Hp(10)_hpd_2.5%'] = df_Dose['Hp(0.07)_hpd_97.5%'] / df_Dose['Hp(10)_hpd_97.5%']
+        df_Dose['Hp(0.07)_to_Hp(10)_hpd_97.5%'] = df_Dose['Hp(0.07)_hpd_2.5%'] / df_Dose['Hp(10)_hpd_2.5%']
+
+        print(df_Dose)
+
+        # Export the summary to an Excel file
+        print fName + '.xlsx'
+        xlsWriter = pandas.ExcelWriter(fName + '.xlsx')
+
+        df_Dose.to_excel(xlsWriter,
+                        columns=['Particle Type', 'Min Energy (keV)', 'Max Energy (keV)',
+                                 'Hp(10)_mean', 'Hp(10)_hpd_2.5%', 'Hp(10)_hpd_97.5%', 
+                                 'D_eye_mean', 'D_eye_hpd_2.5%', 'D_eye_hpd_97.5%', 
+                                 'Hp(0.07)_mean', 'Hp(0.07)_hpd_2.5%', 'Hp(0.07)_hpd_97.5%', 
+                                 'D_eye_to_Hp(0.07)_mean', 'D_eye_to_Hp(0.07)_hpd_2.5%', 'D_eye_to_Hp(0.07)_hpd_97.5%', 
+                                 'D_eye_to_Hp(10)_mean', 'D_eye_to_Hp(10)_hpd_2.5%', 'D_eye_to_Hp(10)_hpd_97.5%',
+                                 'Hp(0.07)_to_Hp(10)_mean', 'Hp(0.07)_to_Hp(10)_hpd_2.5%', 'Hp(0.07)_to_Hp(10)_hpd_97.5%'])
+
+        xlsWriter.save()
+
 
     def plotUnfoldedDoseHistogram(self, fName='UnfoldedDoseHistogram.pdf'):
         '''
@@ -1400,17 +1542,19 @@ class PyMBSD(object):
         self.Samples = N
         self.Burn = B
         with self.model:
-            mu, sds, elbo = pm.variational.advi(n=2000000)
-
             # Select the Posterior sampling algorithm
-            print 'Sampling the posterior using HMC ...'
-            step = pm.HamiltonianMC(scaling=np.power(self.model.dict_to_array(sds), 2), is_cov=True)
+            print 'Sampling the posterior using Hamiltonian MC ...'
 
             # Sample
-            self.trace = pm.sample(self.Samples,
-                                   tune = self.Burn,
-                                   start = mu,
-                                   step=step)
+            self.trace = pm.sample(draws = self.Samples,
+                                    tune = self.Burn,
+                                    step = pm.HamiltonianMC(),
+                                    start = pm.find_MAP(),
+                                    use_mmap = True,
+                                    chains=4,
+                                    cores=4,
+                                    compute_convergence_checks = True)
+
             
             # Print a summary of the MCMC trace      
             pm.summary(self.trace)
@@ -1486,8 +1630,6 @@ fBackgroundLaBr3 = args.BackgroundLaBr3.__enter__() if args.BackgroundLaBr3 else
 fOutputFilename = args.OutputFilename if args.OutputFilename else ''
 
 # Dose Coefficients
-fDoseCoeffGamma  = './Dose Coefficients/ICRP116_Photon_DoseConversionCoefficients.xlsx'
-fDoseCoeffBeta  = './Dose Coefficients/ICRP116_Electron_DoseConversionCoefficients.xlsx'
 fDoseCoeff  = './Dose Coefficients/DoseConversionCoefficients.xls'
 
 # Initiate the class
@@ -1505,10 +1647,6 @@ myMBSD = PyMBSD(MigBetaPlastic = fResponsePlastic.Get('Energy Migration Matrix (
 myMBSD.plotResponse(fName = 'ResponseMatrix.jpg')
 myMBSD.plotGeometricFactor(fName = 'GeometricFactor.jpg')
 
-# Load the absorbed dose coefficients (NOTE: Using ICRP 116)
-#myMBSD.loadDoseCoeffGamma(fName = fDoseCoeffGamma)
-#myMBSD.loadDoseCoeffBeta(fName = fDoseCoeffBeta)
-
 # Load the dose coefficients
 myMBSD.loadDoseCoeff(fName = fDoseCoeff)
 
@@ -1523,29 +1661,34 @@ myMBSD.buildModel(DataPlastic = fDataPlastic.Get('Detector Measured Spectrum'),
 if args.SamplingAlgorithm == 'MH':
     # Run Metropolis Hastings sampling algorithm
     myMBSD.sampleMH(N=500000,B=100000)
-    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_MH.pdf')
-    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_MH.pdf')
-    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_MH.pdf')
+    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_MH')
+    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_MH')
+    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_MH')
+    myMBSD.printUnfoldedDoseSummary(fName = fOutputFilename + '_Dose_Summary')
 elif args.SamplingAlgorithm == 'ADVI':
     # Run Variational Inference sampling algorithm
     myMBSD.sampleADVI()
-    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_ADVI.pdf')
+    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_ADVI')
     myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_ADVI')
-    myMBSD.plotUnfoldedDoseHistogram(fName = fOutputFilename + '_Hist_Dose_ADVI.pdf')
+    myMBSD.plotUnfoldedDoseHistogram(fName = fOutputFilename + '_Hist_Dose_ADVI')
     myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_ADVI')
+    myMBSD.printUnfoldedDoseSummary(fName = fOutputFilename + '_Dose_Summary')
 elif args.SamplingAlgorithm == 'NUTS':
     # Run the No-U-Turn sampling algorithm
     myMBSD.sampleNUTS(100000,100000)
-    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_NUTS.pdf')
-    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_NUTS.pdf')
-    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_NUTS.pdf')
+    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_NUTS')
+    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_NUTS')
+    myMBSD.plotFoldedMeasuredSpectrum(fName = fOutputFilename + '_Folded_NUTS')
+    myMBSD.printUnfoldedDoseSummary(fName = fOutputFilename + '_Dose_Summary')
 elif args.SamplingAlgorithm == 'HMC':
     # Run the Hamiltonian Monte Carlo sampling algorithm
     myMBSD.sampleHMC()
-    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_HMC.pdf')
-    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_HMC.pdf')
+    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_HMC')
+    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_HMC')
+    myMBSD.printUnfoldedDoseSummary(fName = fOutputFilename + '_Dose_Summary')
 elif args.SamplingAlgorithm == 'SMC':
     # Run the Sequential Monte Carlo sampling algorithm
     myMBSD.sampleSMC()
-    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_SMC.pdf')
-    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_SMC.pdf')
+    myMBSD.plotUnfoldedFluenceSpectrum(fName = fOutputFilename + '_Fluence_SMC')
+    myMBSD.plotUnfoldedDoseSpectrum(fName = fOutputFilename + '_Dose_SMC')
+    myMBSD.printUnfoldedDoseSummary(fName = fOutputFilename + '_Dose_Summary')
