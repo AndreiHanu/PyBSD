@@ -378,7 +378,7 @@ class PyMBSD(object):
 
         self.coeffGammaEye = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                       df_Photon_D3['Energy (MeV)'].values*1E3, 
-                                                      df_Photon_D3['D(3,ISO)/phi (pGy cm2)'].values*coeffScalingFactor),
+                                                      df_Photon_D3['D(3,AP)/phi (pGy cm2)'].values*coeffScalingFactor),
                                        self.ResponseBetaPlastic[1][0]])
 
         self.coeffGammaSkin = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
@@ -400,7 +400,7 @@ class PyMBSD(object):
         
         self.coeffBetaEye = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
                                                      df_Electron_D3['Energy (MeV)'].values*1E3, 
-                                                     df_Electron_D3['D(3,ISO)/phi (pGy cm2)'].values*coeffScalingFactor),
+                                                     df_Electron_D3['D(3,AP)/phi (pGy cm2)'].values*coeffScalingFactor),
                                       self.ResponseBetaPlastic[1][0]])
 
         self.coeffBetaSkin = np.array([logInterpCoeff(self.ResponseBetaPlastic[1][0], 
@@ -1210,44 +1210,43 @@ class PyMBSD(object):
         df_Dose = pandas.DataFrame({'Particle Type':'Beta',
                                     'Min Energy (keV)':np.min(self.ResponseBetaPlastic[1][0]),
                                     'Max Energy (keV)':np.max(self.ResponseBetaPlastic[1][0]),
-                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6]),
-                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0]),
-                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13]),
                                     'D_eye_mean':np.sum(binRecoDoseVal[8]),
                                     'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[2]),
                                     'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[14]),
-                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7]),
-                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1]),
-                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13])},
-                                    index=[0])
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12])}, index=[0])
 
         # Calculate the gamma-ray dose rates and add them to a Pandas dataframe
         df_Dose = df_Dose.append({'Particle Type':'Gamma',
                                     'Min Energy (keV)':np.min(self.ResponseGammaPlastic[1][0]),
                                     'Max Energy (keV)':np.max(self.ResponseGammaPlastic[1][0]),
-                                    'Hp(10)_mean':np.sum(binRecoDoseVal[9]),
-                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[3]),
-                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[15]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[10]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[4]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[16]),
                                     'D_eye_mean':np.sum(binRecoDoseVal[11]),
                                     'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[5]),
                                     'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[17]),
-                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[10]),
-                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[4]),
-                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[16])}, ignore_index = True)
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[9]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[3]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[15])}, ignore_index = True)
 
         # Calculate the combined dose rates and add them to a Pandas dataframe
         df_Dose = df_Dose.append({'Particle Type':'Beta + Gamma',
                                     'Min Energy (keV)':np.minimum(np.min(self.ResponseBetaPlastic[1][0]), np.min(self.ResponseGammaPlastic[1][0])),
                                     'Max Energy (keV)':np.maximum(np.max(self.ResponseBetaPlastic[1][0]), np.max(self.ResponseGammaPlastic[1][0])),
-                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6] + binRecoDoseVal[9]),
-                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0] + binRecoDoseVal[3]),
-                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12] + binRecoDoseVal[15]),
+                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7] + binRecoDoseVal[10]),
+                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1] + binRecoDoseVal[4]),
+                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13] + binRecoDoseVal[16]),
                                     'D_eye_mean':np.sum(binRecoDoseVal[8] + binRecoDoseVal[11]),
                                     'D_eye_hpd_2.5%':np.sum(binRecoDoseVal[2] + binRecoDoseVal[5]),
                                     'D_eye_hpd_97.5%':np.sum(binRecoDoseVal[14] + binRecoDoseVal[17]),
-                                    'Hp(0.07)_mean':np.sum(binRecoDoseVal[7] + binRecoDoseVal[10]),
-                                    'Hp(0.07)_hpd_2.5%':np.sum(binRecoDoseVal[1] + binRecoDoseVal[4]),
-                                    'Hp(0.07)_hpd_97.5%':np.sum(binRecoDoseVal[13] + binRecoDoseVal[16])}, ignore_index = True)
+                                    'Hp(10)_mean':np.sum(binRecoDoseVal[6] + binRecoDoseVal[9]),
+                                    'Hp(10)_hpd_2.5%':np.sum(binRecoDoseVal[0] + binRecoDoseVal[3]),
+                                    'Hp(10)_hpd_97.5%':np.sum(binRecoDoseVal[12] + binRecoDoseVal[15])}, ignore_index = True)
 
         # Calculate Dose Ratios
         df_Dose['D_eye_to_Hp(0.07)_mean'] = df_Dose['D_eye_mean'] / df_Dose['Hp(0.07)_mean']
@@ -1271,9 +1270,9 @@ class PyMBSD(object):
 
         df_Dose.to_excel(xlsWriter,
                         columns=['Particle Type', 'Min Energy (keV)', 'Max Energy (keV)',
-                                 'Hp(10)_mean', 'Hp(10)_hpd_2.5%', 'Hp(10)_hpd_97.5%', 
-                                 'D_eye_mean', 'D_eye_hpd_2.5%', 'D_eye_hpd_97.5%', 
-                                 'Hp(0.07)_mean', 'Hp(0.07)_hpd_2.5%', 'Hp(0.07)_hpd_97.5%', 
+                                 'Hp(0.07)_mean', 'Hp(0.07)_hpd_2.5%', 'Hp(0.07)_hpd_97.5%',
+                                 'D_eye_mean', 'D_eye_hpd_2.5%', 'D_eye_hpd_97.5%',
+                                 'Hp(10)_mean', 'Hp(10)_hpd_2.5%', 'Hp(10)_hpd_97.5%',
                                  'D_eye_to_Hp(0.07)_mean', 'D_eye_to_Hp(0.07)_hpd_2.5%', 'D_eye_to_Hp(0.07)_hpd_97.5%', 
                                  'D_eye_to_Hp(10)_mean', 'D_eye_to_Hp(10)_hpd_2.5%', 'D_eye_to_Hp(10)_hpd_97.5%',
                                  'Hp(0.07)_to_Hp(10)_mean', 'Hp(0.07)_to_Hp(10)_hpd_2.5%', 'Hp(0.07)_to_Hp(10)_hpd_97.5%'])
